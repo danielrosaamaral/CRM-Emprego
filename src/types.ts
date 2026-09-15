@@ -104,6 +104,8 @@ export interface RecallResult {
 
 export type EngineType = 'gemini' | 'groq' | 'mistral';
 
+export type ConnectionStatus = 'nao_configurada' | 'valida' | 'invalida' | 'erro_ligacao';
+
 export interface EngineConfig {
   id: EngineType;
   nome: string;
@@ -114,6 +116,11 @@ export interface EngineConfig {
   temChaveAmbiente: boolean;
   limiteAtingido: boolean;
   ultimosErros?: string;
+  hasKey?: boolean;
+  isEnvKey?: boolean;
+  maskedKey?: string;
+  connectionStatus?: ConnectionStatus;
+  statusMessage?: string;
 }
 
 export type EngineTask = 'pesquisa' | 'extraccao' | 'classificacao' | 'analise_perfil' | 'geracao_email';

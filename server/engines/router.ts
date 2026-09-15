@@ -1,4 +1,5 @@
 import { EngineConfig, EngineTask, EngineType } from '../../src/types.js';
+import { configService } from '../configService.js';
 import { db } from '../storage.js';
 import { isGeminiAvailable, runGemini } from './geminiEngine.js';
 import { isGroqAvailable, runGroq } from './groqEngine.js';
@@ -58,24 +59,26 @@ export class MultiEngineRouter {
 
       try {
         let text = '';
+        const effectiveKey = configService.getEffectiveApiKey(engineId);
+
         if (engineId === 'gemini') {
-          if (!isGeminiAvailable()) {
-            attempts.push({ engine: 'gemini', error: 'GEMINI_API_KEY não disponível' });
+          if (!isGeminiAvailable(effectiveKey)) {
+            attempts.push({ engine: 'gemini', error: 'Chave Gemini não configurada' });
             continue;
           }
-          text = await runGemini(prompt, systemInstruction, jsonMode);
+          text = await runGemini(prompt, effectiveKey, systemInstruction, config?.modeloPreferido, jsonMode);
         } else if (engineId === 'groq') {
-          if (!isGroqAvailable()) {
+          if (!isGroqAvailable(effectiveKey)) {
             attempts.push({ engine: 'groq', error: 'Chave Groq não configurada' });
             continue;
           }
-          text = await runGroq(prompt, undefined, systemInstruction, config?.modeloPreferido, jsonMode);
+          text = await runGroq(prompt, effectiveKey, systemInstruction, config?.modeloPreferido, jsonMode);
         } else if (engineId === 'mistral') {
-          if (!isMistralAvailable()) {
+          if (!isMistralAvailable(effectiveKey)) {
             attempts.push({ engine: 'mistral', error: 'Chave Mistral não configurada' });
             continue;
           }
-          text = await runMistral(prompt, undefined, systemInstruction, config?.modeloPreferido, jsonMode);
+          text = await runMistral(prompt, effectiveKey, systemInstruction, config?.modeloPreferido, jsonMode);
         }
 
         if (text && text.trim().length > 0) {
