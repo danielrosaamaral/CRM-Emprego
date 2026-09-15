@@ -1,0 +1,6 @@
+{
+  "name": "Gestão de Candidaturas e Emprego",
+  "description": "Aplicação profissional para gestão e preparação de ofertas de emprego e candidaturas espontâneas para designer sénior.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
