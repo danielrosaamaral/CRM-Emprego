@@ -16,8 +16,8 @@ import {
   Check,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { OfferStatus, SpontaneousCompany } from '../types.js';
-import { formatDatePt, getStatusBadgeStyle } from '../utils.js';
+import { OfferStatus, SpontaneousCompany } from '../types';
+import { formatDatePt, getStatusBadgeStyle } from '../utils';
 
 interface SpontaneousListProps {
   companies: SpontaneousCompany[];

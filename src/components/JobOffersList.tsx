@@ -14,8 +14,8 @@ import {
   Clock,
 } from 'lucide-react';
 import React from 'react';
-import { JobOffer, OfferStatus } from '../types.js';
-import { formatDatePt, getStatusBadgeStyle } from '../utils.js';
+import { JobOffer, OfferStatus } from '../types';
+import { formatDatePt, getStatusBadgeStyle } from '../utils';
 
 interface JobOffersListProps {
   offers: JobOffer[];

@@ -13,8 +13,8 @@ import {
   Award,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { KnowledgeDocument, RecallResult } from '../types.js';
-import { formatDatePt } from '../utils.js';
+import { KnowledgeDocument, RecallResult } from '../types';
+import { formatDatePt } from '../utils';
 
 interface KnowledgeBaseProps {
   documents: KnowledgeDocument[];

@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FilterBar } from './components/FilterBar.js';
-import { Header } from './components/Header.js';
-import { JobOffersList } from './components/JobOffersList.js';
-import { KnowledgeBase } from './components/KnowledgeBase.js';
-import { QuickSearchModal } from './components/QuickSearchModal.js';
-import { SettingsPanel } from './components/SettingsPanel.js';
-import { SpontaneousList } from './components/SpontaneousList.js';
-import { EmailModal } from './components/EmailModal.js';
+import { FilterBar } from './components/FilterBar';
+import { Header } from './components/Header';
+import { JobOffersList } from './components/JobOffersList';
+import { KnowledgeBase } from './components/KnowledgeBase';
+import { QuickSearchModal } from './components/QuickSearchModal';
+import { SettingsPanel } from './components/SettingsPanel';
+import { SpontaneousList } from './components/SpontaneousList';
+import { EmailModal } from './components/EmailModal';
 import {
   AppDataResponse,
   AppSettings,
@@ -15,7 +15,7 @@ import {
   OfferStatus,
   RecallResult,
   SpontaneousCompany,
-} from './types.js';
+} from './types';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState<'ofertas' | 'espontaneas' | 'perfil' | 'definicoes'>('ofertas');
@@ -350,10 +350,10 @@ export default function App() {
       // Text query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesCompany = o.empresa.toLowerCase().includes(q);
-        const matchesRole = o.funcao.toLowerCase().includes(q);
-        const matchesLoc = o.localizacao.toLowerCase().includes(q);
-        const matchesSector = o.sector?.toLowerCase().includes(q);
+        const matchesCompany = (o.empresa || '').toLowerCase().includes(q);
+        const matchesRole = (o.funcao || '').toLowerCase().includes(q);
+        const matchesLoc = (o.localizacao || '').toLowerCase().includes(q);
+        const matchesSector = (o.sector || '').toLowerCase().includes(q);
         if (!matchesCompany && !matchesRole && !matchesLoc && !matchesSector) return false;
       }
 
@@ -376,9 +376,9 @@ export default function App() {
       // Text query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchesName = c.nome.toLowerCase().includes(q);
-        const matchesSector = c.sector.toLowerCase().includes(q);
-        const matchesLoc = c.localizacao.toLowerCase().includes(q);
+        const matchesName = (c.nome || '').toLowerCase().includes(q);
+        const matchesSector = (c.sector || '').toLowerCase().includes(q);
+        const matchesLoc = (c.localizacao || '').toLowerCase().includes(q);
         if (!matchesName && !matchesSector && !matchesLoc) return false;
       }
 
@@ -414,7 +414,7 @@ export default function App() {
           setSearchQuery('');
         }}
         counts={counts}
-        activeEngineName={settings?.motores.gemini.modelo || 'Gemini 3.8 Flash'}
+        activeEngineName={settings?.motores?.gemini?.modeloPreferido || 'Gemini 3.8 Flash'}
       />
 
       {/* Ephemeral Notification Toast */}

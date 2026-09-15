@@ -15,7 +15,7 @@ import {
   RotateCcw,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { AppSettings, EngineConfig, EngineTask, EngineType } from '../types.js';
+import { AppSettings, EngineConfig, EngineTask, EngineType } from '../types';
 
 interface SettingsPanelProps {
   settings: AppSettings;

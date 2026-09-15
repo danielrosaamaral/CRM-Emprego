@@ -1,6 +1,6 @@
 import { Briefcase, Building2, BookOpen, Settings2, Sparkles, CheckCircle2 } from 'lucide-react';
 import React from 'react';
-import { EngineConfig } from '../types.js';
+import { EngineConfig } from '../types';
 
 interface HeaderProps {
   activeTab: 'ofertas' | 'espontaneas' | 'perfil' | 'definicoes';

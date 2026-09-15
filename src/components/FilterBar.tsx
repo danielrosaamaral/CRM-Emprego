@@ -1,6 +1,6 @@
 import { RefreshCw, Search, SlidersHorizontal, Car, Navigation } from 'lucide-react';
 import React from 'react';
-import { OfferStatus } from '../types.js';
+import { OfferStatus } from '../types';
 
 interface FilterBarProps {
   mode: 'ofertas' | 'espontaneas';

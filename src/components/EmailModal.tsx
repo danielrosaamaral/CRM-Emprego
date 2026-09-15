@@ -10,8 +10,8 @@ import {
   MailCheck,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { JobOffer, SpontaneousCompany } from '../types.js';
-import { createGmailComposeUrl, createMailtoUrl } from '../utils.js';
+import { JobOffer, SpontaneousCompany } from '../types';
+import { createGmailComposeUrl, createMailtoUrl } from '../utils';
 
 interface EmailModalProps {
   item: JobOffer | SpontaneousCompany;
