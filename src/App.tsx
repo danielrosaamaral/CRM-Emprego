@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FilterBar } from './components/FilterBar';
 import { Header } from './components/Header';
 import { JobOffersList } from './components/JobOffersList';
@@ -27,6 +27,7 @@ export default function App() {
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [companies, setCompanies] = useState<SpontaneousCompany[]>([]);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -78,6 +79,42 @@ export default function App() {
   const showNotice = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Debounced persistence for geographic distance slider
+  const distanceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDistanceChange = (val: number) => {
+    setDistanceKm(val);
+    if (distanceDebounceRef.current) {
+      clearTimeout(distanceDebounceRef.current);
+    }
+    distanceDebounceRef.current = setTimeout(async () => {
+      try {
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ distanciaKmPadrao: val }),
+        });
+        setSettings((prev) => (prev ? { ...prev, distanciaKmPadrao: val } : prev));
+      } catch (err) {
+        console.error('Erro ao guardar distância predefinida:', err);
+      }
+    }, 400);
+  };
+
+  const handleMaxCarMinutesChange = async (val: number) => {
+    setMaxCarMinutes(val);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempoCarroMaxMin: val }),
+      });
+      setSettings((prev) => (prev ? { ...prev, tempoCarroMaxMin: val } : prev));
+    } catch (err) {
+      console.error('Erro ao guardar tempo de carro predefinido:', err);
+    }
   };
 
   // Refresh trigger (searches for new items and deduplicates)
@@ -162,6 +199,30 @@ export default function App() {
     }
   };
 
+  // Inline update of offer details
+  const handleUpdateOffer = async (id: string, updates: Partial<JobOffer>): Promise<JobOffer> => {
+    try {
+      const res = await fetch(`/api/offers/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error('Falha ao atualizar oferta');
+      const data = await res.json();
+      const updatedOffer: JobOffer = data.oferta;
+
+      setOffers((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, ...updatedOffer } : o))
+      );
+      showNotice('Oferta atualizada com sucesso.', 'success');
+      return updatedOffer;
+    } catch (err: any) {
+      console.error('Erro ao atualizar oferta:', err);
+      showNotice('Erro ao atualizar oferta na base de dados.', 'error');
+      throw err;
+    }
+  };
+
   // Open Email Preparer Modal
   const handleOpenEmail = async (item: JobOffer | SpontaneousCompany) => {
     const isOffer = 'empresa' in item;
@@ -193,7 +254,11 @@ export default function App() {
       const res = await fetch('/api/email/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, item }),
+        body: JSON.stringify({
+          type,
+          item,
+          docIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
+        }),
       });
       if (!res.ok) throw new Error('Falha ao gerar e-mail');
       const email = await res.json();
@@ -257,10 +322,41 @@ export default function App() {
       body: JSON.stringify({
         type: selectedEmailItem.type,
         item: selectedEmailItem.item,
+        docIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
       }),
     });
     if (!res.ok) throw new Error('Erro ao regenerar');
     return await res.json();
+  };
+
+  // Selective document selection handlers
+  const handleToggleSelectDoc = (id: string) => {
+    setSelectedDocIds((prev) =>
+      prev.includes(id) ? prev.filter((docId) => docId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllDocs = (selectAll: boolean) => {
+    if (selectAll) {
+      setSelectedDocIds(documents.map((d) => d.id));
+    } else {
+      setSelectedDocIds([]);
+    }
+  };
+
+  // Delete document with server synchronization
+  const handleDeleteDocument = async (id: string) => {
+    try {
+      const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Erro ao eliminar documento no servidor');
+      const data = await res.json();
+      setDocuments(data.todosDocumentos || []);
+      setSelectedDocIds((prev) => prev.filter((docId) => docId !== id));
+      showNotice('Documento eliminado da base de conhecimento com sucesso.', 'success');
+    } catch (err: any) {
+      console.error('Erro ao eliminar documento:', err);
+      showNotice(err?.message || 'Erro ao eliminar documento.', 'error');
+    }
   };
 
   // Upload CV or Portfolio
@@ -293,11 +389,15 @@ export default function App() {
   };
 
   // Recall question test bench
-  const handleRecallQuestion = async (pergunta: string): Promise<RecallResult> => {
+  const handleRecallQuestion = async (pergunta: string, docIds?: string[]): Promise<RecallResult> => {
+    const targetDocIds = docIds && docIds.length > 0 ? docIds : (selectedDocIds.length > 0 ? selectedDocIds : undefined);
     const res = await fetch('/api/knowledge/recall', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pergunta }),
+      body: JSON.stringify({
+        pergunta,
+        docIds: targetDocIds,
+      }),
     });
     if (!res.ok) throw new Error('Erro na consulta de conhecimento');
     return await res.json();
@@ -439,9 +539,9 @@ export default function App() {
         <FilterBar
           mode={activeTab}
           distanceKm={distanceKm}
-          onDistanceChange={setDistanceKm}
+          onDistanceChange={handleDistanceChange}
           maxCarMinutes={maxCarMinutes}
-          onMaxCarMinutesChange={setMaxCarMinutes}
+          onMaxCarMinutesChange={handleMaxCarMinutesChange}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
           searchQuery={searchQuery}
@@ -459,7 +559,7 @@ export default function App() {
         {isLoading ? (
           <div className="text-center py-20">
             <div className="inline-block w-6 h-6 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p className="font-serif text-base text-neutral-600">A carregar base de candidaturas...</p>
+            <p className="text-base text-neutral-600">A carregar base de candidaturas...</p>
           </div>
         ) : (
           <>
@@ -469,6 +569,7 @@ export default function App() {
                 onOpenEmail={handleOpenEmail}
                 onUpdateStatus={handleUpdateStatus}
                 onOpenGoogleSearch={(query) => setActiveSearchQuery(query)}
+                onUpdateOffer={handleUpdateOffer}
               />
             )}
 
@@ -484,6 +585,10 @@ export default function App() {
             {activeTab === 'perfil' && (
               <KnowledgeBase
                 documents={documents}
+                selectedDocIds={selectedDocIds}
+                onToggleSelectDoc={handleToggleSelectDoc}
+                onSelectAllDocs={handleSelectAllDocs}
+                onDeleteDocument={handleDeleteDocument}
                 onUploadFile={handleUploadFile}
                 onRecallQuestion={handleRecallQuestion}
                 isUploading={isUploading}
@@ -528,7 +633,7 @@ export default function App() {
       <footer className="border-t border-[#E5E5EA] bg-white py-4 mt-auto">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-neutral-500">
           <div className="flex items-center gap-2">
-            <span className="font-serif font-medium text-neutral-800">Atelier Daniel Rosa Amaral</span>
+            <span className="font-medium text-neutral-800">Atelier Daniel Rosa Amaral</span>
             <span>·</span>
             <span>25 Anos de Experiência em Design & Estratégia</span>
           </div>

@@ -538,18 +538,149 @@ class DatabaseManager {
     }
   }
 
+  private validateDatabaseIntegrity(parsed: any): void {
+    const issues: string[] = [];
+
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      console.warn('[INTEGRIDADE DB] A raiz da base de dados data/db.json não é um objeto JSON válido.');
+      return;
+    }
+
+    // 1. Confirmação da estrutura principal
+    const collections = ['ofertas', 'empresas', 'documentos'];
+    for (const col of collections) {
+      if (!(col in parsed)) {
+        issues.push(`Coleção principal ausente: "${col}".`);
+      } else if (!Array.isArray(parsed[col])) {
+        issues.push(`Coleção "${col}" tem tipo inválido (esperado Array, recebido ${typeof parsed[col]}).`);
+      }
+    }
+
+    if (!('definicoes' in parsed)) {
+      issues.push('Configurações principais ausentes: "definicoes".');
+    } else if (typeof parsed.definicoes !== 'object' || parsed.definicoes === null || Array.isArray(parsed.definicoes)) {
+      issues.push(`Configurações "definicoes" têm tipo inválido (esperado Object, recebido ${typeof parsed.definicoes}).`);
+    }
+
+    // 2. Verificação de ofertas (offers)
+    if (Array.isArray(parsed.ofertas)) {
+      parsed.ofertas.forEach((o: any, idx: number) => {
+        const idStr = o?.id || `índice ${idx}`;
+        if (!o || typeof o !== 'object') {
+          issues.push(`Oferta [${idStr}] não é um objeto válido.`);
+          return;
+        }
+        if (!o.id || typeof o.id !== 'string') {
+          issues.push(`Oferta [${idStr}] sem 'id' válido.`);
+        }
+        if (!o.empresa || typeof o.empresa !== 'string') {
+          issues.push(`Oferta [${idStr}] sem 'empresa' (campo essencial).`);
+        }
+        if (!o.funcao || typeof o.funcao !== 'string') {
+          issues.push(`Oferta [${idStr}] sem 'funcao' (campo essencial).`);
+        }
+        if (!o.localizacao || typeof o.localizacao !== 'string') {
+          issues.push(`Oferta [${idStr}] sem 'localizacao' válida.`);
+        }
+        if (o.distanciaKm !== undefined && typeof o.distanciaKm !== 'number') {
+          issues.push(`Oferta [${idStr}] tem 'distanciaKm' não numérica.`);
+        }
+        if (!o.estado || typeof o.estado !== 'string') {
+          issues.push(`Oferta [${idStr}] sem 'estado' válido.`);
+        }
+        // Verificação de fontesUrls quando presente
+        if (o.fontesUrls !== undefined) {
+          if (!Array.isArray(o.fontesUrls)) {
+            issues.push(`Oferta [${idStr}] tem 'fontesUrls' inválido (esperado Array de strings).`);
+          } else {
+            const hasInvalidUrl = o.fontesUrls.some((u: any) => typeof u !== 'string');
+            if (hasInvalidUrl) {
+              issues.push(`Oferta [${idStr}] contém elementos não-string em 'fontesUrls'.`);
+            }
+          }
+        }
+      });
+    }
+
+    // 3. Verificação de candidaturas espontâneas (spontaneousCompanies)
+    if (Array.isArray(parsed.empresas)) {
+      parsed.empresas.forEach((c: any, idx: number) => {
+        const idStr = c?.id || `índice ${idx}`;
+        if (!c || typeof c !== 'object') {
+          issues.push(`Empresa [${idStr}] não é um objeto válido.`);
+          return;
+        }
+        if (!c.id || typeof c.id !== 'string') {
+          issues.push(`Empresa [${idStr}] sem 'id' válido.`);
+        }
+        if (!c.nome || typeof c.nome !== 'string') {
+          issues.push(`Empresa [${idStr}] sem 'nome' (campo essencial).`);
+        }
+        if (!c.localizacao || typeof c.localizacao !== 'string') {
+          issues.push(`Empresa [${idStr}] sem 'localizacao' válida.`);
+        }
+        if (c.distanciaKm !== undefined && typeof c.distanciaKm !== 'number') {
+          issues.push(`Empresa [${idStr}] tem 'distanciaKm' não numérica.`);
+        }
+        if (c.tempoDeslocacaoCarroMin !== undefined && typeof c.tempoDeslocacaoCarroMin !== 'number') {
+          issues.push(`Empresa [${idStr}] tem 'tempoDeslocacaoCarroMin' não numérico.`);
+        }
+        if (c.pessoasRelevantes !== undefined && !Array.isArray(c.pessoasRelevantes)) {
+          issues.push(`Empresa [${idStr}] tem 'pessoasRelevantes' inválido (esperado Array).`);
+        }
+      });
+    }
+
+    // 4. Verificação de definições (settings)
+    if (parsed.definicoes && typeof parsed.definicoes === 'object') {
+      const def = parsed.definicoes;
+      if (def.localizacaoBase !== undefined && typeof def.localizacaoBase !== 'string') {
+        issues.push("Definição 'localizacaoBase' tem tipo inválido (esperado string).");
+      }
+      if (def.distanciaKmPadrao !== undefined && typeof def.distanciaKmPadrao !== 'number') {
+        issues.push("Definição 'distanciaKmPadrao' tem tipo inválido (esperado number).");
+      }
+      if (def.tempoCarroMaxMin !== undefined && typeof def.tempoCarroMaxMin !== 'number') {
+        issues.push("Definição 'tempoCarroMaxMin' tem tipo inválido (esperado number).");
+      }
+      if (def.motores !== undefined && (typeof def.motores !== 'object' || def.motores === null)) {
+        issues.push("Definição 'motores' tem tipo inválido (esperado object).");
+      }
+      // Verificação de regrasCopy quando presente
+      if (def.regrasCopy !== undefined) {
+        if (!Array.isArray(def.regrasCopy) && typeof def.regrasCopy !== 'string' && typeof def.regrasCopy !== 'object') {
+          issues.push("Definição 'regrasCopy' com estrutura inválida.");
+        }
+      }
+    }
+
+    // Registo claro no log
+    if (issues.length > 0) {
+      console.warn(`[INTEGRIDADE DB] Foram detetados ${issues.length} alerta(s) na base de dados data/db.json:`);
+      issues.forEach((issue) => console.warn(`  - ${issue}`));
+      console.warn('[INTEGRIDADE DB] Arranque mantido sem destruição ou substituição de dados.');
+    } else {
+      console.info('[INTEGRIDADE DB] Verificação de integridade no arranque concluída com sucesso: dados consistentes.');
+    }
+  }
+
   private loadDatabase(): DatabaseSchema {
     try {
       if (fs.existsSync(DB_FILE)) {
         const raw = fs.readFileSync(DB_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
-        // Ensure keys exist
+        
+        // Executar verificação de integridade estrutural
+        this.validateDatabaseIntegrity(parsed);
+
         return {
-          ofertas: parsed.ofertas || INITIAL_OFFERS,
-          empresas: parsed.empresas || INITIAL_COMPANIES,
-          documentos: parsed.documentos || INITIAL_KNOWLEDGE,
-          definicoes: { ...INITIAL_SETTINGS, ...(parsed.definicoes || {}) },
-          historicoEmails: parsed.historicoEmails || [],
+          ofertas: Array.isArray(parsed.ofertas) ? parsed.ofertas : INITIAL_OFFERS,
+          empresas: Array.isArray(parsed.empresas) ? parsed.empresas : INITIAL_COMPANIES,
+          documentos: Array.isArray(parsed.documentos) ? parsed.documentos : INITIAL_KNOWLEDGE,
+          definicoes: parsed.definicoes && typeof parsed.definicoes === 'object' && !Array.isArray(parsed.definicoes)
+            ? { ...INITIAL_SETTINGS, ...parsed.definicoes }
+            : INITIAL_SETTINGS,
+          historicoEmails: parsed.historicoEmails || {},
         };
       }
     } catch (err) {
@@ -597,12 +728,43 @@ class DatabaseManager {
       if (!existingMap.has(key)) {
         existingMap.set(key, off);
         addedCount++;
+      } else {
+        const existing = existingMap.get(key)!;
+        const combinedUrls = new Set<string>();
+        if (existing.urlOferta) combinedUrls.add(existing.urlOferta);
+        if (existing.fontesUrls) existing.fontesUrls.forEach((u) => combinedUrls.add(u));
+        if (off.urlOferta) combinedUrls.add(off.urlOferta);
+        if (off.fontesUrls) off.fontesUrls.forEach((u) => combinedUrls.add(u));
+        if (combinedUrls.size > 1) {
+          existing.fontesUrls = Array.from(combinedUrls);
+        }
       }
     }
 
     this.data.ofertas = Array.from(existingMap.values());
     this.saveDatabase();
     return { total: this.data.ofertas.length, added: addedCount };
+  }
+
+  public updateOffer(id: string, updates: Partial<JobOffer>): JobOffer | null {
+    const target = this.data.ofertas.find((o) => o.id === id);
+    if (target) {
+      // Obligatorily preserve the original id
+      const { id: _ignoredId, ...safeUpdates } = updates;
+
+      // Merge contactoRelevante if both exist so existing fields (nome, cargo, linkedin, verificado) are kept
+      if (safeUpdates.contactoRelevante && target.contactoRelevante) {
+        safeUpdates.contactoRelevante = {
+          ...target.contactoRelevante,
+          ...safeUpdates.contactoRelevante,
+        };
+      }
+
+      Object.assign(target, safeUpdates);
+      this.saveDatabase();
+      return target;
+    }
+    return null;
   }
 
   public updateOfferStatus(id: string, estado: JobOffer['estado'], dataEnviado?: string) {
@@ -684,6 +846,16 @@ class DatabaseManager {
     this.data.documentos.push(doc);
     this.saveDatabase();
     return doc;
+  }
+
+  public deleteDocument(id: string): boolean {
+    const prevCount = this.data.documentos.length;
+    this.data.documentos = this.data.documentos.filter((d) => d.id !== id);
+    if (this.data.documentos.length !== prevCount) {
+      this.saveDatabase();
+      return true;
+    }
+    return false;
   }
 
   public updateSettings(settings: Partial<AppSettings>) {

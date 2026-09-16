@@ -27,7 +27,7 @@ export const QuickSearchModal: React.FC<QuickSearchModalProps> = ({ query, onClo
         <div className="px-5 py-3.5 border-b border-neutral-200 bg-neutral-50 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Search className="w-4 h-4 text-neutral-600" />
-            <h3 className="font-serif text-sm font-semibold text-neutral-900">
+            <h3 className="text-sm font-semibold text-neutral-900">
               Pesquisa Focada no LinkedIn
             </h3>
           </div>

@@ -243,9 +243,16 @@ Responde APENAS em JSON no formato:
    */
   public async generateApplicationEmail(
     type: 'oferta' | 'espontanea',
-    item: JobOffer | SpontaneousCompany
+    item: JobOffer | SpontaneousCompany,
+    docIds?: string[]
   ): Promise<{ assunto: string; corpo: string; destinatario: string }> {
-    const docs = db.getData().documentos;
+    let docs = db.getData().documentos;
+    if (Array.isArray(docIds) && docIds.length > 0) {
+      const selected = docs.filter((d) => docIds.includes(d.id));
+      if (selected.length > 0) {
+        docs = selected;
+      }
+    }
     const candidateFactContext = docs.map((d) => `DOCUMENTO: ${d.nomeFicheiro}\n${d.conteudoTexto}`).join('\n\n');
 
     let recipient = '';

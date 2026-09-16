@@ -85,8 +85,16 @@ Responde APENAS em JSON no seguinte formato:
     return doc;
   }
 
-  public async recall(pergunta: string): Promise<RecallResult> {
-    const docs = db.getData().documentos;
+  public async recall(pergunta: string, docIds?: string[]): Promise<RecallResult> {
+    let docs = db.getData().documentos;
+    // Se existir seleção explícita de documentos, utilizar apenas os selecionados
+    if (Array.isArray(docIds) && docIds.length > 0) {
+      const selected = docs.filter((d) => docIds.includes(d.id));
+      if (selected.length > 0) {
+        docs = selected;
+      }
+    }
+
     if (!docs || docs.length === 0) {
       return {
         pergunta,

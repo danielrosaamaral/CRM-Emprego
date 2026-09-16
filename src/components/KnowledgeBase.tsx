@@ -11,6 +11,8 @@ import {
   Calendar,
   Briefcase,
   Award,
+  Trash2,
+  Check,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { KnowledgeDocument, RecallResult } from '../types';
@@ -18,13 +20,21 @@ import { formatDatePt } from '../utils';
 
 interface KnowledgeBaseProps {
   documents: KnowledgeDocument[];
+  selectedDocIds: string[];
+  onToggleSelectDoc: (id: string) => void;
+  onSelectAllDocs: (selectAll: boolean) => void;
+  onDeleteDocument: (id: string) => Promise<void>;
   onUploadFile: (file: File, tipo: 'cv' | 'portfolio') => Promise<void>;
-  onRecallQuestion: (question: string) => Promise<RecallResult>;
+  onRecallQuestion: (question: string, docIds?: string[]) => Promise<RecallResult>;
   isUploading: boolean;
 }
 
 export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
   documents,
+  selectedDocIds,
+  onToggleSelectDoc,
+  onSelectAllDocs,
+  onDeleteDocument,
   onUploadFile,
   onRecallQuestion,
   isUploading,
@@ -33,6 +43,8 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
   const [recallResult, setRecallResult] = useState<RecallResult | null>(null);
   const [isRecalling, setIsRecalling] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
 
   const sampleQuestions = [
     'O que sabes sobre a minha experiência em branding?',
@@ -71,7 +83,9 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
     try {
       setIsRecalling(true);
       setRecallInput(questionToAsk);
-      const res = await onRecallQuestion(questionToAsk);
+      // Utilizar apenas os documentos selecionados se existir seleção explícita
+      const docIdsToUse = selectedDocIds.length > 0 ? selectedDocIds : undefined;
+      const res = await onRecallQuestion(questionToAsk, docIdsToUse);
       setRecallResult(res);
     } catch (err: any) {
       setRecallResult({
@@ -93,7 +107,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
             <span className="text-[11px] font-mono uppercase tracking-widest text-neutral-400">
               Base de Conhecimento Estruturada
             </span>
-            <h2 className="font-serif text-2xl font-normal text-neutral-900 mt-1">
+            <h2 className="text-2xl font-semibold text-neutral-900 mt-1 tracking-tight">
               Perfil Profissional & Documentação Factual
             </h2>
             <p className="text-xs text-neutral-600 mt-2 max-w-3xl leading-relaxed">
@@ -101,7 +115,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
             </p>
           </div>
           <div className="hidden sm:flex flex-col items-end">
-            <span className="font-serif text-3xl font-medium text-neutral-900">25</span>
+            <span className="text-3xl font-bold text-neutral-900 tracking-tight">25</span>
             <span className="text-[11px] text-neutral-500 uppercase tracking-wide">Anos de Carreira</span>
           </div>
         </div>
@@ -126,7 +140,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
             <FileText className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="font-serif text-base font-medium text-neutral-900">
+            <h3 className="text-base font-semibold text-neutral-900">
               Curriculum Vitae (CV)
             </h3>
             <p className="text-xs text-neutral-500 mt-1">
@@ -155,7 +169,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
             <Layers className="w-6 h-6" />
           </div>
           <div>
-            <h3 className="font-serif text-base font-medium text-neutral-900">
+            <h3 className="text-base font-semibold text-neutral-900">
               Portfólio de Trabalhos
             </h3>
             <p className="text-xs text-neutral-500 mt-1">
@@ -177,63 +191,168 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
 
       {/* Indexed Documents Details */}
       <div className="bg-white border border-[#E5E5EA] rounded-lg p-6 space-y-4">
-        <h3 className="font-serif text-lg font-medium text-neutral-900 flex items-center gap-2">
-          <BookOpen className="w-4 h-4 text-neutral-500" />
-          <span>Documentos Atualmente Indexados no Sistema ({documents.length})</span>
-        </h3>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <h3 className="text-lg font-semibold text-neutral-900 flex items-center gap-2">
+            <BookOpen className="w-4 h-4 text-neutral-500" />
+            <span>Documentos Atualmente Indexados ({documents.length})</span>
+          </h3>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {documents.map((doc) => (
-            <div
-              key={doc.id}
-              className="border border-neutral-200 rounded-md p-4 bg-neutral-50/50 space-y-3 text-xs"
-            >
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="uppercase font-mono text-[10px] px-2 py-0.5 rounded bg-neutral-200 text-neutral-800 font-semibold">
-                      {doc.tipo}
-                    </span>
-                    <span className="font-medium text-neutral-900">{doc.nomeFicheiro}</span>
-                  </div>
-                  <p className="text-[11px] text-neutral-500 mt-0.5">
-                    Atualizado em {formatDatePt(doc.dataUpload)} · {Math.round(doc.tamanhoBytes / 1024)} KB
-                  </p>
-                </div>
-                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              </div>
-
-              <p className="text-neutral-700 leading-relaxed text-[11px] italic">
-                "{doc.resumoExtraido}"
-              </p>
-
-              {/* Extracted Tags */}
-              <div className="space-y-1.5 pt-2 border-t border-neutral-200">
-                <div className="text-[10px] font-mono uppercase text-neutral-400">
-                  Competências e Especialidades Extraídas:
-                </div>
-                <div className="flex flex-wrap gap-1">
-                  {doc.entidadesExtraidas.competencias.map((comp, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 rounded bg-white text-neutral-800 border border-neutral-200 text-[10px]"
-                    >
-                      {comp}
-                    </span>
-                  ))}
-                  {doc.entidadesExtraidas.sectores.map((sec, idx) => (
-                    <span
-                      key={idx}
-                      className="px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[10px]"
-                    >
-                      {sec}
-                    </span>
-                  ))}
-                </div>
-              </div>
+          {/* Selective selection action controls */}
+          {documents.length > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-[11px] font-mono text-neutral-500">
+                {selectedDocIds.length > 0
+                  ? `${selectedDocIds.length} de ${documents.length} selecionados`
+                  : `Todos ativos (padrão)`}
+              </span>
+              <button
+                type="button"
+                onClick={() => onSelectAllDocs(true)}
+                className="px-2.5 py-1 bg-neutral-100 hover:bg-neutral-200 text-neutral-700 border border-neutral-300 rounded text-[11px] font-medium cursor-pointer transition-colors"
+              >
+                Selecionar Todos
+              </button>
+              <button
+                type="button"
+                onClick={() => onSelectAllDocs(false)}
+                className="px-2.5 py-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300 rounded text-[11px] font-medium cursor-pointer transition-colors"
+              >
+                Desmarcar Todos
+              </button>
             </div>
-          ))}
+          )}
         </div>
+
+        {documents.length === 0 ? (
+          <p className="text-xs text-neutral-500 italic py-4 text-center">
+            Nenhum documento carregado. Carrega o teu CV ou Portfólio acima.
+          </p>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {documents.map((doc) => {
+              const isSelected = selectedDocIds.includes(doc.id);
+              const isPendingDelete = confirmDeleteId === doc.id;
+
+              return (
+                <div
+                  key={doc.id}
+                  className={`border rounded-md p-4 transition-all space-y-3 text-xs ${
+                    isSelected
+                      ? 'border-neutral-900 bg-white ring-1 ring-neutral-900 shadow-xs'
+                      : 'border-neutral-200 bg-neutral-50/50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-start gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => onToggleSelectDoc(doc.id)}
+                        className={`mt-0.5 flex items-center justify-center w-4 h-4 rounded border transition-colors cursor-pointer ${
+                          isSelected
+                            ? 'bg-neutral-900 border-neutral-900 text-white'
+                            : 'bg-white border-neutral-300 text-transparent hover:border-neutral-500'
+                        }`}
+                        title={isSelected ? 'Desmarcar documento' : 'Selecionar documento para utilização'}
+                      >
+                        <Check className="w-3 h-3 stroke-[3]" />
+                      </button>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="uppercase font-mono text-[10px] px-2 py-0.5 rounded bg-neutral-200 text-neutral-800 font-semibold">
+                            {doc.tipo}
+                          </span>
+                          <span className="font-medium text-neutral-900">{doc.nomeFicheiro}</span>
+                          {isSelected && (
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200 font-medium">
+                              Ativo para IA
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-neutral-500 mt-0.5">
+                          Atualizado em {formatDatePt(doc.dataUpload)} · {Math.round(doc.tamanhoBytes / 1024)} KB
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => setConfirmDeleteId(isPendingDelete ? null : doc.id)}
+                        className="text-neutral-400 hover:text-red-600 p-1 rounded hover:bg-neutral-100 transition-colors cursor-pointer"
+                        title="Eliminar documento da base de conhecimento"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Confirmação explícita antes de apagar */}
+                  {isPendingDelete && (
+                    <div className="bg-red-50 border border-red-200 rounded p-3 space-y-2 text-xs">
+                      <p className="text-red-800 font-medium">
+                        Tens a certeza que desejas eliminar "{doc.nomeFicheiro}" da base de conhecimento?
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="px-3 py-1 bg-white hover:bg-neutral-100 text-neutral-700 border border-neutral-300 rounded text-[11px] font-medium transition-colors cursor-pointer"
+                        >
+                          Cancelar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              setIsDeletingId(doc.id);
+                              await onDeleteDocument(doc.id);
+                              setConfirmDeleteId(null);
+                            } finally {
+                              setIsDeletingId(null);
+                            }
+                          }}
+                          disabled={isDeletingId === doc.id}
+                          className="px-3 py-1 bg-red-600 hover:bg-red-700 text-white rounded text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1"
+                        >
+                          {isDeletingId === doc.id ? 'A eliminar...' : 'Confirmar Eliminação'}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  <p className="text-neutral-700 leading-relaxed text-[11px] italic">
+                    "{doc.resumoExtraido}"
+                  </p>
+
+                  {/* Extracted Tags */}
+                  <div className="space-y-1.5 pt-2 border-t border-neutral-200">
+                    <div className="text-[10px] font-mono uppercase text-neutral-400">
+                      Competências e Especialidades Extraídas:
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {doc.entidadesExtraidas.competencias.map((comp, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded bg-white text-neutral-800 border border-neutral-200 text-[10px]"
+                        >
+                          {comp}
+                        </span>
+                      ))}
+                      {doc.entidadesExtraidas.sectores.map((sec, idx) => (
+                        <span
+                          key={idx}
+                          className="px-2 py-0.5 rounded bg-amber-50 text-amber-900 border border-amber-200 text-[10px]"
+                        >
+                          {sec}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Search / Recall Tool */}
@@ -242,13 +361,21 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
           <span className="text-[11px] font-mono uppercase tracking-widest text-neutral-400">
             Ferramenta de Validação & Consulta
           </span>
-          <h3 className="font-serif text-xl font-normal text-neutral-900 mt-0.5 flex items-center gap-2">
+          <h3 className="text-xl font-semibold text-neutral-900 mt-0.5 flex items-center gap-2">
             <Search className="w-5 h-5 text-neutral-500" />
             <span>Search / Recall Factual</span>
           </h3>
           <p className="text-xs text-neutral-600 mt-1">
             Faz perguntas ao motor de conhecimento para testar se os teus documentos foram lidos com rigor e ver as fontes exactas.
           </p>
+          <div className="mt-2 text-[11px] font-mono text-neutral-500 flex items-center gap-2">
+            <span>Âmbito da consulta:</span>
+            <span className="font-medium text-neutral-800 bg-neutral-100 px-2 py-0.5 rounded border border-neutral-200">
+              {selectedDocIds.length > 0
+                ? `${selectedDocIds.length} documento(s) selecionado(s)`
+                : `Todos os documentos (${documents.length}) [comportamento padrão]`}
+            </span>
+          </div>
         </div>
 
         {/* Preset sample questions */}
@@ -316,7 +443,7 @@ export const KnowledgeBase: React.FC<KnowledgeBaseProps> = ({
                         <span className="font-semibold text-neutral-900">{fonte.documento}</span>
                         <span className="text-neutral-400">{fonte.seccao}</span>
                       </div>
-                      <p className="text-neutral-600 italic font-serif">"{fonte.evidencia}"</p>
+                      <p className="text-neutral-600 italic">"{fonte.evidencia}"</p>
                     </div>
                   ))}
                 </div>

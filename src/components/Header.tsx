@@ -27,12 +27,12 @@ export const Header: React.FC<HeaderProps> = ({
         <div className="flex flex-col md:flex-row md:items-center md:justify-between py-4 gap-4">
           {/* Logo & Identity */}
           <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-md bg-[#1D1D1F] text-white flex items-center justify-center font-serif text-lg font-medium tracking-tight">
+            <div className="w-9 h-9 rounded-md bg-[#1D1D1F] text-white flex items-center justify-center text-lg font-bold tracking-tight">
               A
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="font-serif text-lg font-medium tracking-tight text-[#1D1D1F]">
+                <span className="text-lg font-semibold tracking-tight text-[#1D1D1F]">
                   Gestão de Candidaturas
                 </span>
                 <span className="text-[10px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">

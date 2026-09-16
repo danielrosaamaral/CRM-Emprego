@@ -269,6 +269,24 @@ async function startServer() {
     }
   });
 
+  // Update offer details (inline editing)
+  const handleUpdateOfferRoute = (req: express.Request, res: express.Response) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updated = db.updateOffer(id, updates);
+      if (!updated) {
+        return res.status(404).json({ error: 'Oferta não encontrada' });
+      }
+      res.json({ success: true, oferta: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao atualizar oferta' });
+    }
+  };
+
+  app.put('/api/offers/:id', handleUpdateOfferRoute);
+  app.post('/api/offers/:id', handleUpdateOfferRoute);
+
   // Update offer status
   app.post('/api/offers/:id/status', (req, res) => {
     try {
@@ -302,11 +320,11 @@ async function startServer() {
   // Generate factual customized email
   app.post('/api/email/generate', async (req, res) => {
     try {
-      const { type, item } = req.body;
+      const { type, item, docIds } = req.body;
       if (!type || !item) {
         return res.status(400).json({ error: 'Parâmetros "type" e "item" são obrigatórios' });
       }
-      const email = await searchService.generateApplicationEmail(type, item);
+      const email = await searchService.generateApplicationEmail(type, item, docIds);
       res.json(email);
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao gerar e-mail' });
@@ -332,14 +350,28 @@ async function startServer() {
     }
   });
 
+  // Delete document from Knowledge Base
+  app.delete('/api/knowledge/:id', (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = db.deleteDocument(id);
+      if (!success) {
+        return res.status(404).json({ error: 'Documento não encontrado' });
+      }
+      res.json({ success: true, todosDocumentos: db.getData().documentos });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao apagar documento' });
+    }
+  });
+
   // Search/Recall from Knowledge Base
   app.post('/api/knowledge/recall', async (req, res) => {
     try {
-      const { pergunta } = req.body;
+      const { pergunta, docIds } = req.body;
       if (!pergunta) {
         return res.status(400).json({ error: 'Pergunta é obrigatória' });
       }
-      const recallResult = await knowledgeService.recall(pergunta);
+      const recallResult = await knowledgeService.recall(pergunta, docIds);
       res.json(recallResult);
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro no recall da base de conhecimento' });

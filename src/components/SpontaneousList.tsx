@@ -43,7 +43,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
   if (companies.length === 0) {
     return (
       <div className="text-center py-16 px-4 bg-white rounded-lg border border-neutral-200">
-        <p className="font-serif text-lg text-neutral-600 mb-2">
+        <p className="text-base font-semibold text-neutral-700 mb-2">
           Nenhuma empresa encontrada com os critérios de deslocação actuais.
         </p>
         <p className="text-xs text-neutral-500 max-w-md mx-auto">
@@ -68,7 +68,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-100">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-serif text-lg font-semibold text-[#1D1D1F] tracking-tight">
+                  <h3 className="text-lg font-semibold text-[#1D1D1F] tracking-tight">
                     {company.nome}
                   </h3>
                   <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 border border-neutral-200">

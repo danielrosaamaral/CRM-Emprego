@@ -88,7 +88,7 @@ export const EmailModal: React.FC<EmailModalProps> = ({
               <span className="text-[10px] font-mono uppercase px-2 py-0.5 rounded bg-neutral-200 text-neutral-800">
                 {type === 'oferta' ? 'Resposta a Oferta' : 'Candidatura Espontânea'}
               </span>
-              <h2 className="font-serif text-lg font-semibold text-neutral-900 tracking-tight">
+              <h2 className="text-lg font-semibold text-neutral-900 tracking-tight">
                 Preparação de E-mail: {entityName}
               </h2>
             </div>

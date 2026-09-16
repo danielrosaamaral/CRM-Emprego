@@ -25,6 +25,10 @@ export interface JobOffer {
   dataEnviado?: string;
   resumoRequisitos?: string;
   sector?: string;
+  notas?: string;
+  fontesUrls?: string[];
+  contacto?: string;
+  email?: string;
   emailPreparado?: {
     assunto: string;
     corpo: string;
@@ -138,6 +142,7 @@ export interface AppSettings {
   tempoCarroMaxMin: number; // default 10
   motores: Record<EngineType, EngineConfig>;
   roteamento: Record<EngineTask, TaskEngineRouting>;
+  regrasCopy?: string[] | any;
 }
 
 export interface AppStatePayload {

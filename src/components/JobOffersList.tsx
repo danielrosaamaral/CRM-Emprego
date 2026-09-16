@@ -12,8 +12,12 @@ import {
   Search,
   Globe,
   Clock,
+  Pencil,
+  Check,
+  X,
+  FileText,
 } from 'lucide-react';
-import React from 'react';
+import React, { useState } from 'react';
 import { JobOffer, OfferStatus } from '../types';
 import { formatDatePt, getStatusBadgeStyle } from '../utils';
 
@@ -22,6 +26,7 @@ interface JobOffersListProps {
   onOpenEmail: (offer: JobOffer) => void;
   onUpdateStatus: (id: string, status: OfferStatus) => void;
   onOpenGoogleSearch: (query: string) => void;
+  onUpdateOffer?: (id: string, updates: Partial<JobOffer>) => Promise<JobOffer>;
 }
 
 export const JobOffersList: React.FC<JobOffersListProps> = ({
@@ -29,11 +34,95 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
   onOpenEmail,
   onUpdateStatus,
   onOpenGoogleSearch,
+  onUpdateOffer,
 }) => {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    empresa: '',
+    funcao: '',
+    localizacao: '',
+    urlOferta: '',
+    email: '',
+    notas: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleStartEdit = (offer: JobOffer) => {
+    setEditingId(offer.id);
+    setEditForm({
+      empresa: offer.empresa || '',
+      funcao: offer.funcao || '',
+      localizacao: offer.localizacao || '',
+      urlOferta: offer.urlOferta || '',
+      email: offer.contactoRelevante?.email || offer.email || '',
+      notas: offer.notas || '',
+    });
+    setSaveError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setSaveError(null);
+  };
+
+  const handleSaveEdit = async (offer: JobOffer) => {
+    if (!editForm.empresa.trim() || !editForm.funcao.trim()) {
+      setSaveError('Empresa e Função são campos obrigatórios.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+
+      const updates: Partial<JobOffer> = {
+        empresa: editForm.empresa.trim(),
+        funcao: editForm.funcao.trim(),
+        localizacao: editForm.localizacao.trim(),
+        urlOferta: editForm.urlOferta.trim(),
+        fontesUrls: offer.fontesUrls && offer.fontesUrls.length > 0
+          ? Array.from(new Set([editForm.urlOferta.trim(), ...offer.fontesUrls].filter(Boolean)))
+          : (editForm.urlOferta.trim() ? [editForm.urlOferta.trim()] : undefined),
+        notas: editForm.notas.trim(),
+        contactoRelevante: offer.contactoRelevante
+          ? {
+              ...offer.contactoRelevante,
+              email: editForm.email.trim() || undefined,
+            }
+          : editForm.email.trim()
+          ? {
+              nome: 'Contacto',
+              cargo: 'Recrutamento',
+              email: editForm.email.trim(),
+              verificado: false,
+            }
+          : undefined,
+      };
+
+      if (onUpdateOffer) {
+        await onUpdateOffer(offer.id, updates);
+      } else {
+        const res = await fetch(`/api/offers/${offer.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        if (!res.ok) throw new Error('Falha ao guardar alterações');
+      }
+
+      setEditingId(null);
+    } catch (err: any) {
+      setSaveError(err?.message || 'Erro ao guardar alterações');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (offers.length === 0) {
     return (
       <div className="text-center py-16 px-4 bg-white rounded-lg border border-neutral-200">
-        <p className="font-serif text-lg text-neutral-600 mb-2">
+        <p className="text-base font-semibold text-neutral-700 mb-2">
           Nenhuma oferta de emprego encontrada para os filtros atuais.
         </p>
         <p className="text-xs text-neutral-500 max-w-md mx-auto">
@@ -47,219 +136,386 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
     <div className="space-y-4">
       {offers.map((offer) => {
         const statusStyle = getStatusBadgeStyle(offer.estado);
+        const isEditing = editingId === offer.id;
 
         return (
           <article
             key={offer.id}
-            className="bg-white border border-[#E5E5EA] rounded-lg p-5 transition-all hover:border-neutral-300 shadow-xs"
+            className={`bg-white border ${
+              isEditing ? 'border-neutral-900 ring-1 ring-neutral-900/10' : 'border-[#E5E5EA]'
+            } rounded-lg p-5 transition-all hover:border-neutral-300 shadow-xs`}
           >
-            {/* Header: Company, Role & Status */}
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-100">
-              <div className="space-y-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-serif text-lg font-semibold text-[#1D1D1F] tracking-tight">
-                    {offer.funcao}
-                  </h3>
-                  <span
-                    className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
-                  >
-                    {statusStyle.label}
-                  </span>
-                  {offer.dataEnviado && (
-                    <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                      Enviado em {formatDatePt(offer.dataEnviado)}
+            {isEditing ? (
+              /* Inline Edit Form */
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-base text-[#1D1D1F]">
+                      Editar Registo da Oferta
                     </span>
-                  )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-600">
-                  <span className="font-medium text-neutral-900">{offer.empresa}</span>
-                  <span className="flex items-center gap-1 text-neutral-500">
-                    <MapPin className="w-3.5 h-3.5 text-neutral-400" />
-                    {offer.localizacao} ({offer.distanciaKm} km
-                    {offer.tempoCarroMin ? ` · ~${offer.tempoCarroMin} min de carro` : ''})
-                  </span>
-                  {offer.dataOferta && (
-                    <span className="flex items-center gap-1 text-neutral-400">
-                      <Calendar className="w-3.5 h-3.5" />
-                      Oferta: {formatDatePt(offer.dataOferta)}
+                    <span className="text-[10px] font-mono text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded border border-neutral-200">
+                      ID: {offer.id}
                     </span>
-                  )}
-                  <span className="text-neutral-400">
-                    Encontrada: {formatDatePt(offer.dataEncontrado)}
-                  </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      disabled={isSaving}
+                      className="px-3 py-1.5 text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Cancelar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveEdit(offer)}
+                      disabled={isSaving}
+                      className="px-3.5 py-1.5 text-xs font-medium text-white bg-[#1D1D1F] hover:bg-black rounded transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                    >
+                      {isSaving ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5" />
+                      )}
+                      <span>Guardar</span>
+                    </button>
+                  </div>
                 </div>
-              </div>
 
-              {/* Compatibility Score Pill */}
-              <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-neutral-900 text-white text-xs font-mono font-medium">
-                  <Sparkles className="w-3 h-3 text-amber-400" />
-                  <span>{offer.grauCompatibilidade}% compatível</span>
-                </div>
-                <span className="text-[10px] text-neutral-400">25 anos de experiência</span>
-              </div>
-            </div>
-
-            {/* Middle Row: Links & Contact & Compatibility Reasons */}
-            <div className="grid grid-cols-1 md:grid-cols-12 gap-4 py-3.5 text-xs">
-              {/* Left Column: Key Compatibility Reasons */}
-              <div className="md:col-span-7 space-y-2">
-                <div className="text-[11px] uppercase tracking-wider font-mono text-neutral-400">
-                  Principais Razões de Compatibilidade Factual:
-                </div>
-                <ul className="space-y-1">
-                  {offer.razoesCompatibilidade.map((razao, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-neutral-700">
-                      <span className="text-neutral-400 select-none">•</span>
-                      <span>{razao}</span>
-                    </li>
-                  ))}
-                </ul>
-                {offer.resumoRequisitos && (
-                  <p className="text-neutral-500 italic pt-1 border-t border-neutral-100 text-[11px]">
-                    Requisitos: {offer.resumoRequisitos}
-                  </p>
+                {saveError && (
+                  <div className="p-2.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded">
+                    {saveError}
+                  </div>
                 )}
-              </div>
 
-              {/* Right Column: Contact & Verification */}
-              <div className="md:col-span-5 bg-neutral-50 rounded-md p-3 border border-neutral-200/80 space-y-2">
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-500">
-                  <span>Pessoa / Contacto Relevante</span>
-                  {offer.contactoRelevante ? (
-                    offer.contactoRelevante.verificado ? (
-                      <span className="flex items-center gap-1 text-emerald-700 font-medium">
-                        <ShieldCheck className="w-3 h-3" /> Verificado
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Empresa *
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.empresa}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, empresa: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      placeholder="Nome da empresa"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Função *
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.funcao}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, funcao: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      placeholder="Função ou cargo"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Localização
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.localizacao}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, localizacao: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      placeholder="ex: Porto / Matosinhos"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Contacto / E-mail
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.email}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      placeholder="ex: recrutamento@empresa.pt"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      URL Principal da Oferta
+                    </label>
+                    <input
+                      type="url"
+                      value={editForm.urlOferta}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, urlOferta: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900 font-mono text-xs"
+                      placeholder="https://..."
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Notas
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editForm.notas}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, notas: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900 resize-y"
+                      placeholder="Notas internas ou observações sobre a oferta..."
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              /* Display View */
+              <>
+                {/* Header: Company, Role & Status */}
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-100">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-lg font-semibold text-[#1D1D1F] tracking-tight">
+                        {offer.funcao}
+                      </h3>
+                      <span
+                        className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
+                      >
+                        {statusStyle.label}
                       </span>
-                    ) : (
-                      <span className="flex items-center gap-1 text-amber-700">
-                        <ShieldAlert className="w-3 h-3" /> Não Verificado
+                      {offer.dataEnviado && (
+                        <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                          Enviado em {formatDatePt(offer.dataEnviado)}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-600">
+                      <span className="font-medium text-neutral-900">{offer.empresa}</span>
+                      <span className="flex items-center gap-1 text-neutral-500">
+                        <MapPin className="w-3.5 h-3.5 text-neutral-400" />
+                        {offer.localizacao} ({offer.distanciaKm} km
+                        {offer.tempoCarroMin ? ` · ~${offer.tempoCarroMin} min de carro` : ''})
                       </span>
-                    )
-                  ) : (
-                    <span className="text-neutral-400">Não Identificado</span>
-                  )}
+                      {offer.dataOferta && (
+                        <span className="flex items-center gap-1 text-neutral-400">
+                          <Calendar className="w-3.5 h-3.5" />
+                          Oferta: {formatDatePt(offer.dataOferta)}
+                        </span>
+                      )}
+                      <span className="text-neutral-400">
+                        Encontrada: {formatDatePt(offer.dataEncontrado)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Compatibility Score Pill */}
+                  <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-neutral-900 text-white text-xs font-mono font-medium">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span>{offer.grauCompatibilidade}% compatível</span>
+                    </div>
+                    <span className="text-[10px] text-neutral-400">25 anos de experiência</span>
+                  </div>
                 </div>
 
-                {offer.contactoRelevante ? (
-                  <div className="space-y-1">
-                    <p className="font-semibold text-neutral-900">
-                      {offer.contactoRelevante.nome}
-                    </p>
-                    <p className="text-neutral-600 text-[11px]">{offer.contactoRelevante.cargo}</p>
-                    {offer.contactoRelevante.email && (
-                      <p className="text-neutral-700 font-mono text-[11px]">
-                        {offer.contactoRelevante.email}
+                {/* Middle Row: Links & Contact & Compatibility Reasons */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4 py-3.5 text-xs">
+                  {/* Left Column: Key Compatibility Reasons */}
+                  <div className="md:col-span-7 space-y-2">
+                    <div className="text-[11px] uppercase tracking-wider font-mono text-neutral-400">
+                      Principais Razões de Compatibilidade Factual:
+                    </div>
+                    <ul className="space-y-1">
+                      {offer.razoesCompatibilidade.map((razao, idx) => (
+                        <li key={idx} className="flex items-start gap-2 text-neutral-700">
+                          <span className="text-neutral-400 select-none">•</span>
+                          <span>{razao}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    {offer.resumoRequisitos && (
+                      <p className="text-neutral-500 italic pt-1 border-t border-neutral-100 text-[11px]">
+                        Requisitos: {offer.resumoRequisitos}
                       </p>
                     )}
-                    {offer.contactoRelevante.linkedin && (
+
+                    {/* Notas, se existirem */}
+                    {offer.notas && (
+                      <div className="mt-2 text-xs bg-amber-50/60 border border-amber-200/70 rounded p-2 text-neutral-800 flex items-start gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-semibold text-neutral-800">Notas:</span> {offer.notas}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Right Column: Contact & Verification */}
+                  <div className="md:col-span-5 bg-neutral-50 rounded-md p-3 border border-neutral-200/80 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-500">
+                      <span>Pessoa / Contacto Relevante</span>
+                      {offer.contactoRelevante ? (
+                        offer.contactoRelevante.verificado ? (
+                          <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                            <ShieldCheck className="w-3 h-3" /> Verificado
+                          </span>
+                        ) : (
+                          <span className="flex items-center gap-1 text-amber-700">
+                            <ShieldAlert className="w-3 h-3" /> Não Verificado
+                          </span>
+                        )
+                      ) : (
+                        <span className="text-neutral-400">Não Identificado</span>
+                      )}
+                    </div>
+
+                    {offer.contactoRelevante ? (
+                      <div className="space-y-1">
+                        <p className="font-semibold text-neutral-900">
+                          {offer.contactoRelevante.nome}
+                        </p>
+                        <p className="text-neutral-600 text-[11px]">{offer.contactoRelevante.cargo}</p>
+                        {offer.contactoRelevante.email && (
+                          <p className="text-neutral-700 font-mono text-[11px]">
+                            {offer.contactoRelevante.email}
+                          </p>
+                        )}
+                        {offer.contactoRelevante.linkedin && (
+                          <a
+                            href={offer.contactoRelevante.linkedin}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-neutral-700 hover:text-neutral-900 underline text-[11px]"
+                          >
+                            Ver Perfil no LinkedIn
+                          </a>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 text-neutral-500">
+                        <p className="text-[11px]">Contacto direto não identificado na oferta pública.</p>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            onOpenGoogleSearch(`site:linkedin.com/in "${offer.empresa}" recursos humanos`)
+                          }
+                          className="inline-flex items-center gap-1 text-[11px] font-mono text-neutral-700 hover:text-neutral-950 underline cursor-pointer"
+                        >
+                          <Search className="w-3 h-3" />
+                          Procurar RH de {offer.empresa} no LinkedIn
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Footer Row: Source Links & Primary Actions */}
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-100">
+                  {/* External Links */}
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
+                    {offer.fontesUrls && offer.fontesUrls.length > 1 ? (
+                      offer.fontesUrls.map((url, idx) => (
+                        <a
+                          key={idx}
+                          href={url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-1 text-neutral-800 hover:text-neutral-950 underline font-medium"
+                          title={url}
+                        >
+                          <span>Fonte {idx + 1}</span>
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      ))
+                    ) : offer.urlOferta ? (
                       <a
-                        href={offer.contactoRelevante.linkedin}
+                        href={offer.urlOferta}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-neutral-700 hover:text-neutral-900 underline text-[11px]"
+                        className="inline-flex items-center gap-1 text-neutral-800 hover:text-neutral-950 underline font-medium"
                       >
-                        Ver Perfil no LinkedIn
+                        <span>Ver Oferta</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : null}
+                    {offer.websiteEmpresa && (
+                      <a
+                        href={offer.websiteEmpresa}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-neutral-600 hover:text-neutral-900"
+                      >
+                        <Globe className="w-3 h-3" />
+                        <span>Website</span>
+                      </a>
+                    )}
+                    {offer.linkedinEmpresa && (
+                      <a
+                        href={offer.linkedinEmpresa}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 text-neutral-600 hover:text-neutral-900"
+                      >
+                        <span>LinkedIn Empresa</span>
                       </a>
                     )}
                   </div>
-                ) : (
-                  <div className="space-y-1.5 text-neutral-500">
-                    <p className="text-[11px]">Contacto direto não identificado na oferta pública.</p>
+
+                  {/* Action Buttons: Edit, E-mail & Status Changes */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    {/* Inline Edit Button */}
                     <button
                       type="button"
-                      onClick={() =>
-                        onOpenGoogleSearch(`site:linkedin.com/in "${offer.empresa}" recursos humanos`)
-                      }
-                      className="inline-flex items-center gap-1 text-[11px] font-mono text-neutral-700 hover:text-neutral-950 underline cursor-pointer"
+                      onClick={() => handleStartEdit(offer)}
+                      title="Editar detalhes da oferta"
+                      className="px-2.5 py-1 text-xs border border-neutral-300 text-neutral-700 bg-neutral-50 hover:bg-neutral-100 rounded transition-colors cursor-pointer flex items-center gap-1"
                     >
-                      <Search className="w-3 h-3" />
-                      Procurar RH de {offer.empresa} no LinkedIn
+                      <Pencil className="w-3 h-3" />
+                      <span>Editar</span>
+                    </button>
+
+                    {/* Status Switcher Dropdown */}
+                    <select
+                      value={offer.estado}
+                      onChange={(e) => onUpdateStatus(offer.id, e.target.value as OfferStatus)}
+                      className="text-xs bg-white border border-neutral-200 rounded px-2 py-1 text-neutral-700 cursor-pointer focus:outline-none focus:border-neutral-400"
+                      aria-label="Alterar estado da oferta"
+                    >
+                      <option value="novo">Novo</option>
+                      <option value="visto">Visto</option>
+                      <option value="preparada">Candidatura Preparada</option>
+                      <option value="enviado">Enviado</option>
+                      <option value="ignorado">Ignorado</option>
+                    </select>
+
+                    {/* Mark as sent quick action */}
+                    {offer.estado !== 'enviado' && (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateStatus(offer.id, 'enviado')}
+                        title="Marcar como Enviado"
+                        className="px-2.5 py-1 text-xs border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded transition-colors cursor-pointer flex items-center gap-1"
+                      >
+                        <CheckCircle className="w-3 h-3" />
+                        <span>Marcar Enviado</span>
+                      </button>
+                    )}
+
+                    {/* Primary Button: Prepare Email */}
+                    <button
+                      type="button"
+                      onClick={() => onOpenEmail(offer)}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1D1D1F] hover:bg-black text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-xs"
+                    >
+                      <Mail className="w-3.5 h-3.5" />
+                      <span>E-mail</span>
                     </button>
                   </div>
-                )}
-              </div>
-            </div>
-
-            {/* Footer Row: Source Links & Primary Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-100">
-              {/* External Links */}
-              <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
-                {offer.urlOferta && (
-                  <a
-                    href={offer.urlOferta}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-neutral-800 hover:text-neutral-950 underline font-medium"
-                  >
-                    <span>Ver Oferta</span>
-                    <ExternalLink className="w-3 h-3" />
-                  </a>
-                )}
-                {offer.websiteEmpresa && (
-                  <a
-                    href={offer.websiteEmpresa}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-neutral-600 hover:text-neutral-900"
-                  >
-                    <Globe className="w-3 h-3" />
-                    <span>Website</span>
-                  </a>
-                )}
-                {offer.linkedinEmpresa && (
-                  <a
-                    href={offer.linkedinEmpresa}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-neutral-600 hover:text-neutral-900"
-                  >
-                    <span>LinkedIn Empresa</span>
-                  </a>
-                )}
-              </div>
-
-              {/* Action Buttons: E-mail & Status Changes */}
-              <div className="flex flex-wrap items-center gap-2">
-                {/* Status Switcher Dropdown */}
-                <select
-                  value={offer.estado}
-                  onChange={(e) => onUpdateStatus(offer.id, e.target.value as OfferStatus)}
-                  className="text-xs bg-white border border-neutral-200 rounded px-2 py-1 text-neutral-700 cursor-pointer focus:outline-none focus:border-neutral-400"
-                  aria-label="Alterar estado da oferta"
-                >
-                  <option value="novo">Novo</option>
-                  <option value="visto">Visto</option>
-                  <option value="preparada">Candidatura Preparada</option>
-                  <option value="enviado">Enviado</option>
-                  <option value="ignorado">Ignorado</option>
-                </select>
-
-                {/* Mark as sent quick action */}
-                {offer.estado !== 'enviado' && (
-                  <button
-                    type="button"
-                    onClick={() => onUpdateStatus(offer.id, 'enviado')}
-                    title="Marcar como Enviado"
-                    className="px-2.5 py-1 text-xs border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded transition-colors cursor-pointer flex items-center gap-1"
-                  >
-                    <CheckCircle className="w-3 h-3" />
-                    <span>Marcar Enviado</span>
-                  </button>
-                )}
-
-                {/* Primary Button: Prepare Email */}
-                <button
-                  type="button"
-                  onClick={() => onOpenEmail(offer)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1D1D1F] hover:bg-black text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-xs"
-                >
-                  <Mail className="w-3.5 h-3.5" />
-                  <span>E-mail</span>
-                </button>
-              </div>
-            </div>
+                </div>
+              </>
+            )}
           </article>
         );
       })}

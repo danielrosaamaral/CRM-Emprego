@@ -34,29 +34,54 @@ export class CsvService {
       'sector',
     ];
 
-    const rows = offers.map((o) => [
-      escapeCsvField(o.id),
-      escapeCsvField(o.empresa),
-      escapeCsvField(o.funcao),
-      escapeCsvField(o.localizacao),
-      escapeCsvField(o.distanciaKm),
-      escapeCsvField(o.tempoCarroMin || ''),
-      escapeCsvField(o.dataOferta),
-      escapeCsvField(o.urlOferta),
-      escapeCsvField(o.websiteEmpresa),
-      escapeCsvField(o.linkedinEmpresa || ''),
-      escapeCsvField(o.contactoRelevante?.nome || ''),
-      escapeCsvField(o.contactoRelevante?.cargo || ''),
-      escapeCsvField(o.contactoRelevante?.email || ''),
-      escapeCsvField(o.contactoRelevante?.linkedin || ''),
-      escapeCsvField(o.contactoRelevante?.verificado ? 'true' : 'false'),
-      escapeCsvField(o.grauCompatibilidade),
-      escapeCsvField(o.razoesCompatibilidade.join(' | ')),
-      escapeCsvField(o.estado),
-      escapeCsvField(o.dataEncontrado),
-      escapeCsvField(o.dataEnviado || ''),
-      escapeCsvField(o.sector || ''),
-    ]);
+    const rows = offers.map((o) => {
+      // Coletar todas as URLs de fontesUrls e urlOferta preservando todas sem perda de informação
+      const urlList: string[] = [];
+      if (Array.isArray(o.fontesUrls) && o.fontesUrls.length > 0) {
+        for (const u of o.fontesUrls) {
+          const trimmed = typeof u === 'string' ? u.trim() : '';
+          if (trimmed && !urlList.includes(trimmed)) {
+            urlList.push(trimmed);
+          }
+        }
+        if (o.urlOferta && typeof o.urlOferta === 'string') {
+          const trimmedUrl = o.urlOferta.trim();
+          if (trimmedUrl && !urlList.includes(trimmedUrl)) {
+            urlList.unshift(trimmedUrl);
+          }
+        }
+      } else if (o.urlOferta && typeof o.urlOferta === 'string') {
+        const trimmedUrl = o.urlOferta.trim();
+        if (trimmedUrl) {
+          urlList.push(trimmedUrl);
+        }
+      }
+      const urlCell = urlList.join(' | ');
+
+      return [
+        escapeCsvField(o.id),
+        escapeCsvField(o.empresa),
+        escapeCsvField(o.funcao),
+        escapeCsvField(o.localizacao),
+        escapeCsvField(o.distanciaKm),
+        escapeCsvField(o.tempoCarroMin || ''),
+        escapeCsvField(o.dataOferta),
+        escapeCsvField(urlCell),
+        escapeCsvField(o.websiteEmpresa),
+        escapeCsvField(o.linkedinEmpresa || ''),
+        escapeCsvField(o.contactoRelevante?.nome || ''),
+        escapeCsvField(o.contactoRelevante?.cargo || ''),
+        escapeCsvField(o.contactoRelevante?.email || ''),
+        escapeCsvField(o.contactoRelevante?.linkedin || ''),
+        escapeCsvField(o.contactoRelevante?.verificado ? 'true' : 'false'),
+        escapeCsvField(o.grauCompatibilidade),
+        escapeCsvField(o.razoesCompatibilidade.join(' | ')),
+        escapeCsvField(o.estado),
+        escapeCsvField(o.dataEncontrado),
+        escapeCsvField(o.dataEnviado || ''),
+        escapeCsvField(o.sector || ''),
+      ];
+    });
 
     return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
   }
@@ -153,6 +178,13 @@ export class CsvService {
         const funcao = getCol('funcao');
         if (!empresa || !funcao) continue;
 
+        const rawUrl = getCol('urlOferta', '');
+        const urlList = rawUrl
+          ? rawUrl.split(/[|\n;]+/).map((s) => s.trim()).filter(Boolean)
+          : [];
+        const urlOferta = urlList[0] || rawUrl;
+        const fontesUrls = urlList.length > 0 ? urlList : undefined;
+
         newOffers.push({
           id: getCol('id') || `off_${Date.now()}_${i}`,
           empresa,
@@ -161,7 +193,8 @@ export class CsvService {
           distanciaKm: parseFloat(getCol('distanciaKm', '5')) || 5,
           tempoCarroMin: parseInt(getCol('tempoCarroMin', '8'), 10) || 8,
           dataOferta: getCol('dataOferta', new Date().toISOString().split('T')[0]),
-          urlOferta: getCol('urlOferta', ''),
+          urlOferta,
+          fontesUrls,
           websiteEmpresa: getCol('websiteEmpresa', ''),
           linkedinEmpresa: getCol('linkedinEmpresa'),
           contactoRelevante: getCol('contactoNome')
