@@ -1,0 +1,66 @@
+{
+  "rua garcia de orta, 6, 2680-113 oeiras, portugal": {
+    "lat": 38.71128,
+    "lon": -9.24482
+  },
+  "porto / matosinhos": {
+    "lat": 41.1579,
+    "lon": -8.6291
+  },
+  "coronado / trofa / maia": {
+    "lat": 41.2333,
+    "lon": -8.6167
+  },
+  "senhora da hora, matosinhos": {
+    "lat": 41.1807,
+    "lon": -8.6822
+  },
+  "leça do balio, matosinhos": {
+    "lat": 41.1807,
+    "lon": -8.6822
+  },
+  "santa maria da feira / espinho": {
+    "lat": 40.9258,
+    "lon": -8.5422
+  },
+  "leça do balio / matosinhos": {
+    "lat": 41.1807,
+    "lon": -8.6822
+  },
+  "vale de cambra / são joão da madeira (parque empresarial maia escritório - 4.5 km)": {
+    "lat": 41.2333,
+    "lon": -8.6167
+  },
+  "arroteia, são mamede de infesta": {
+    "lat": 41.1925,
+    "lon": -8.6083
+  },
+  "águas santas, maia": {
+    "lat": 41.2333,
+    "lon": -8.6167
+  },
+  "maia industrial": {
+    "lat": 41.2333,
+    "lon": -8.6167
+  },
+  "polígono industrial maia / trofa": {
+    "lat": 41.2333,
+    "lon": -8.6167
+  },
+  "porto": {
+    "lat": 41.1579,
+    "lon": -8.6291
+  },
+  "oeiras": {
+    "lat": 38.69258,
+    "lon": -9.31231
+  },
+  "lisboa": {
+    "lat": 38.7223,
+    "lon": -9.1393
+  },
+  "matosinhos": {
+    "lat": 41.1807,
+    "lon": -8.6822
+  }
+}

@@ -12,6 +12,7 @@ import { testMistralConnection } from './server/engines/mistralEngine.js';
 import { router } from './server/engines/router.js';
 import { knowledgeService } from './server/knowledgeService.js';
 import { extractTextFromPdfBuffer } from './server/pdfUtils.js';
+import { geoService } from './server/geoService.js';
 import { searchService } from './server/searchService.js';
 import { db } from './server/storage.js';
 import { EngineType } from './src/types.js';
@@ -195,10 +196,15 @@ async function startServer() {
   app.post('/api/settings/test-key', handleTestEngineConnection);
 
   // Update settings (e.g. location, engine configurations, routing)
-  app.post('/api/settings', (req, res) => {
+  app.post('/api/settings', async (req, res) => {
     try {
       const body = req.body;
       const newSettings = db.updateSettings(body);
+
+      // Recalculate distances dynamically across all offers and companies if locationBase changed
+      if (body.localizacaoBase) {
+        await db.recalculateAllDistances(body.localizacaoBase);
+      }
 
       // Also persist to config.json
       if (body.localizacaoBase || body.distanciaKmPadrao || body.tempoCarroMaxMin) {
@@ -234,7 +240,7 @@ async function startServer() {
         }
       }
 
-      res.json({ success: true, definicoes: responseSettings });
+      res.json({ success: true, definicoes: responseSettings, data: db.getData() });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao atualizar definições' });
     }
@@ -271,10 +277,17 @@ async function startServer() {
   });
 
   // Update offer details (inline editing)
-  const handleUpdateOfferRoute = (req: express.Request, res: express.Response) => {
+  const handleUpdateOfferRoute = async (req: express.Request, res: express.Response) => {
     try {
       const { id } = req.params;
       const updates = req.body;
+      if (updates.localizacao) {
+        updates.localizacao = geoService.cleanLocationName(updates.localizacao);
+        const base = db.getData().definicoes.localizacaoBase;
+        const calc = await geoService.calculateDistanceAndDuration(base, updates.localizacao);
+        updates.distanciaKm = calc.distanciaKm;
+        updates.tempoCarroMin = calc.tempoCarroMin;
+      }
       const updated = db.updateOffer(id, updates);
       if (!updated) {
         return res.status(404).json({ error: 'Oferta não encontrada' });
@@ -304,10 +317,17 @@ async function startServer() {
   });
 
   // Update company details (inline editing)
-  const handleUpdateCompanyRoute = (req: express.Request, res: express.Response) => {
+  const handleUpdateCompanyRoute = async (req: express.Request, res: express.Response) => {
     try {
       const { id } = req.params;
       const updates = req.body;
+      if (updates.localizacao) {
+        updates.localizacao = geoService.cleanLocationName(updates.localizacao);
+        const base = db.getData().definicoes.localizacaoBase;
+        const calc = await geoService.calculateDistanceAndDuration(base, updates.localizacao);
+        updates.distanciaKm = calc.distanciaKm;
+        updates.tempoDeslocacaoCarroMin = calc.tempoCarroMin;
+      }
       const updated = db.updateCompany(id, updates);
       if (!updated) {
         return res.status(404).json({ error: 'Empresa não encontrada' });
@@ -465,6 +485,13 @@ async function startServer() {
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
+  }
+
+  // Recalculate geographic distances on boot using current base location
+  try {
+    await db.recalculateAllDistances();
+  } catch (geoErr) {
+    console.warn('Aviso: falha ao recalcular distâncias no arranque:', geoErr);
   }
 
   app.listen(PORT, '0.0.0.0', () => {

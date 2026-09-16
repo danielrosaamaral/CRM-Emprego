@@ -1,6 +1,7 @@
 import fs from 'fs';
 import path from 'path';
 import { AppSettings, JobOffer, KnowledgeDocument, SpontaneousCompany } from '../src/types.js';
+import { geoService } from './geoService.js';
 
 export interface DatabaseSchema {
   ofertas: JobOffer[];
@@ -23,7 +24,7 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 const INITIAL_SETTINGS: AppSettings = {
-  localizacaoBase: 'Porto / Maia, Portugal',
+  localizacaoBase: 'Rua Garcia de Orta, 6, 2680-113 Oeiras, Portugal',
   distanciaKmPadrao: 10,
   tempoCarroMaxMin: 10,
   motores: {
@@ -903,6 +904,41 @@ class DatabaseManager {
     };
     this.saveDatabase();
     return this.data.definicoes;
+  }
+
+  public async recalculateAllDistances(customBase?: string): Promise<void> {
+    const base = customBase || this.data.definicoes.localizacaoBase || 'Rua Garcia de Orta, 6, 2680-113 Oeiras, Portugal';
+
+    // Recalcular ofertas
+    for (const offer of this.data.ofertas) {
+      const cleanLoc = geoService.cleanLocationName(offer.localizacao);
+      if (cleanLoc) {
+        offer.localizacao = cleanLoc;
+      }
+      const calc = await geoService.calculateDistanceAndDuration(base, offer.localizacao);
+      offer.distanciaKm = calc.distanciaKm;
+      offer.tempoCarroMin = calc.tempoCarroMin;
+
+      // Se nas razões de compatibilidade houver menção antiga a "4.2 km" ou similar, atualiza
+      if (Array.isArray(offer.razoesCompatibilidade)) {
+        offer.razoesCompatibilidade = offer.razoesCompatibilidade.map((r) =>
+          r.replace(/apenas \d+(\.\d+)?\s*km da residência/gi, `${calc.distanciaKm} km da localização-base`)
+        );
+      }
+    }
+
+    // Recalcular empresas espontâneas
+    for (const comp of this.data.empresas) {
+      const cleanLoc = geoService.cleanLocationName(comp.localizacao);
+      if (cleanLoc) {
+        comp.localizacao = cleanLoc;
+      }
+      const calc = await geoService.calculateDistanceAndDuration(base, comp.localizacao);
+      comp.distanciaKm = calc.distanciaKm;
+      comp.tempoDeslocacaoCarroMin = calc.tempoCarroMin;
+    }
+
+    this.saveDatabase();
   }
 }
 

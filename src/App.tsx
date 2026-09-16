@@ -462,6 +462,12 @@ export default function App() {
     if (!res.ok) throw new Error('Falha ao guardar definições');
     const data = await res.json();
     setSettings(data.definicoes);
+    if (data.data?.ofertas) {
+      setOffers(data.data.ofertas);
+    }
+    if (data.data?.empresas) {
+      setCompanies(data.data.empresas);
+    }
     showNotice('Definições atualizadas com sucesso.', 'success');
   };
 
