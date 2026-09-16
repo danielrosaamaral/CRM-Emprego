@@ -10,6 +10,7 @@ import { EmailModal } from './components/EmailModal';
 import {
   AppDataResponse,
   AppSettings,
+  GeographicScope,
   JobOffer,
   KnowledgeDocument,
   OfferStatus,
@@ -20,6 +21,7 @@ import {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'ofertas' | 'espontaneas' | 'perfil' | 'definicoes'>('ofertas');
   const [distanceKm, setDistanceKm] = useState<number>(10);
+  const [geographicScope, setGeographicScope] = useState<GeographicScope>('nacional');
   const [maxCarMinutes, setMaxCarMinutes] = useState<number>(10);
   const [statusFilter, setStatusFilter] = useState<'todos' | OfferStatus>('todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -438,11 +440,24 @@ export default function App() {
     return { imported: data.imported, total: data.total };
   };
 
-  // Filtered Job Offers based on the master distance slider and status
+  // Filtered Job Offers based on geographic scope, master distance slider and status
   const filteredOffers = useMemo(() => {
     return offers.filter((o) => {
-      // Distance filter: master slider
-      if (o.distanciaKm > distanceKm) return false;
+      // Geographic scope filter: Nacional vs Internacional
+      const isOfferIntl = o.ambito === 'internacional' || (o.pais && o.pais.toLowerCase() !== 'portugal');
+      if (geographicScope === 'internacional') {
+        if (!isOfferIntl) return false;
+      } else {
+        // Mode 'nacional': ignore international offers
+        if (isOfferIntl) return false;
+        // Distance filter: master slider from 0 km (immediate base location) up to 600 km (national)
+        // If distanceKm is 0, include exact base location matches (distanciaKm <= 1 km)
+        if (distanceKm === 0) {
+          if (o.distanciaKm > 1.0) return false;
+        } else if (distanceKm < 600) {
+          if (o.distanciaKm > distanceKm) return false;
+        }
+      }
 
       // Status filter
       if (statusFilter !== 'todos' && o.estado !== statusFilter) return false;
@@ -459,16 +474,28 @@ export default function App() {
 
       return true;
     });
-  }, [offers, distanceKm, statusFilter, searchQuery]);
+  }, [offers, geographicScope, distanceKm, statusFilter, searchQuery]);
 
-  // Filtered Spontaneous Companies based on distance slider, drive time, and status
+  // Filtered Spontaneous Companies based on geographic scope, distance slider, drive time, and status
   const filteredCompanies = useMemo(() => {
     return companies.filter((c) => {
-      // Distance filter
-      if (c.distanciaKm > distanceKm) return false;
+      // Geographic scope filter: Nacional vs Internacional
+      const isCompanyIntl = c.ambito === 'internacional' || (c.pais && c.pais.toLowerCase() !== 'portugal');
+      if (geographicScope === 'internacional') {
+        if (!isCompanyIntl) return false;
+      } else {
+        // Mode 'nacional': ignore international companies
+        if (isCompanyIntl) return false;
+        // Distance filter: master slider from 0 km (immediate base location) up to 600 km (national)
+        if (distanceKm === 0) {
+          if (c.distanciaKm > 1.0) return false;
+        } else if (distanceKm < 600) {
+          if (c.distanciaKm > distanceKm) return false;
+        }
+      }
 
-      // Drive time filter
-      if (c.tempoDeslocacaoCarroMin > maxCarMinutes) return false;
+      // Drive time filter (only applicable in national mode)
+      if (geographicScope === 'nacional' && c.tempoDeslocacaoCarroMin > maxCarMinutes) return false;
 
       // Status filter
       if (statusFilter !== 'todos' && c.estado !== statusFilter) return false;
@@ -484,7 +511,7 @@ export default function App() {
 
       return true;
     });
-  }, [companies, distanceKm, maxCarMinutes, statusFilter, searchQuery]);
+  }, [companies, geographicScope, distanceKm, maxCarMinutes, statusFilter, searchQuery]);
 
   // Global counts for the header
   const counts = useMemo(() => {
@@ -540,6 +567,8 @@ export default function App() {
           mode={activeTab}
           distanceKm={distanceKm}
           onDistanceChange={handleDistanceChange}
+          geographicScope={geographicScope}
+          onGeographicScopeChange={setGeographicScope}
           maxCarMinutes={maxCarMinutes}
           onMaxCarMinutesChange={handleMaxCarMinutesChange}
           statusFilter={statusFilter}
