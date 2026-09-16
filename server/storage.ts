@@ -780,10 +780,16 @@ class DatabaseManager {
     return null;
   }
 
-  public updateOfferEmail(id: string, emailPreparado: { assunto: string; corpo: string; dataGeracao: string }) {
+  public updateOfferEmail(id: string, emailPreparado: { assunto: string; corpo: string; dataGeracao?: string }) {
     const target = this.data.ofertas.find((o) => o.id === id);
     if (target) {
-      target.emailPreparado = emailPreparado;
+      const emailWithDate = {
+        assunto: emailPreparado.assunto,
+        corpo: emailPreparado.corpo,
+        dataGeracao: emailPreparado.dataGeracao || new Date().toISOString(),
+      };
+      target.emailPreparado = emailWithDate;
+      target.emailGerado = emailWithDate;
       if (target.estado === 'novo') {
         target.estado = 'preparada';
       }
@@ -814,6 +820,24 @@ class DatabaseManager {
     return { total: this.data.empresas.length, added: addedCount };
   }
 
+  public updateCompany(id: string, updates: Partial<SpontaneousCompany>): SpontaneousCompany | null {
+    const target = this.data.empresas.find((c) => c.id === id);
+    if (target) {
+      // Obligatorily preserve the original id
+      const { id: _ignoredId, ...safeUpdates } = updates;
+
+      // Merge pessoasRelevantes if provided, otherwise preserve existing
+      if (safeUpdates.pessoasRelevantes && target.pessoasRelevantes) {
+        safeUpdates.pessoasRelevantes = safeUpdates.pessoasRelevantes;
+      }
+
+      Object.assign(target, safeUpdates);
+      this.saveDatabase();
+      return target;
+    }
+    return null;
+  }
+
   public updateCompanyStatus(id: string, estado: SpontaneousCompany['estado'], dataEnviado?: string) {
     const target = this.data.empresas.find((c) => c.id === id);
     if (target) {
@@ -827,10 +851,16 @@ class DatabaseManager {
     return null;
   }
 
-  public updateCompanyEmail(id: string, emailPreparado: { assunto: string; corpo: string; dataGeracao: string }) {
+  public updateCompanyEmail(id: string, emailPreparado: { assunto: string; corpo: string; dataGeracao?: string }) {
     const target = this.data.empresas.find((c) => c.id === id);
     if (target) {
-      target.emailPreparado = emailPreparado;
+      const emailWithDate = {
+        assunto: emailPreparado.assunto,
+        corpo: emailPreparado.corpo,
+        dataGeracao: emailPreparado.dataGeracao || new Date().toISOString(),
+      };
+      target.emailPreparado = emailWithDate;
+      target.emailGerado = emailWithDate;
       if (target.estado === 'novo') {
         target.estado = 'preparada';
       }

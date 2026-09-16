@@ -32,6 +32,8 @@ export class CsvService {
       'dataEncontrado',
       'dataEnviado',
       'sector',
+      'ambito',
+      'pais',
     ];
 
     const rows = offers.map((o) => {
@@ -80,6 +82,8 @@ export class CsvService {
         escapeCsvField(o.dataEncontrado),
         escapeCsvField(o.dataEnviado || ''),
         escapeCsvField(o.sector || ''),
+        escapeCsvField(o.ambito || 'nacional'),
+        escapeCsvField(o.pais || 'Portugal'),
       ];
     });
 
@@ -106,6 +110,8 @@ export class CsvService {
       'estado',
       'dataEncontrado',
       'dataEnviado',
+      'ambito',
+      'pais',
     ];
 
     const rows = companies.map((c) => [
@@ -126,6 +132,8 @@ export class CsvService {
       escapeCsvField(c.estado),
       escapeCsvField(c.dataEncontrado),
       escapeCsvField(c.dataEnviado || ''),
+      escapeCsvField(c.ambito || 'nacional'),
+      escapeCsvField(c.pais || 'Portugal'),
     ]);
 
     return [headers.join(','), ...rows.map((r) => r.join(','))].join('\n');
@@ -214,6 +222,8 @@ export class CsvService {
           dataEncontrado: getCol('dataEncontrado', new Date().toISOString().split('T')[0]),
           dataEnviado: getCol('dataEnviado') || undefined,
           sector: getCol('sector', 'indústria'),
+          ambito: (getCol('ambito', 'nacional') as any) || 'nacional',
+          pais: getCol('pais', 'Portugal') || 'Portugal',
         });
       }
 
@@ -261,6 +271,8 @@ export class CsvService {
           estado: (getCol('estado', 'novo') as any) || 'novo',
           dataEncontrado: getCol('dataEncontrado', new Date().toISOString().split('T')[0]),
           dataEnviado: getCol('dataEnviado') || undefined,
+          ambito: (getCol('ambito', 'nacional') as any) || 'nacional',
+          pais: getCol('pais', 'Portugal') || 'Portugal',
         });
       }
 

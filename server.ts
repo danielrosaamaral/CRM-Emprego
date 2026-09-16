@@ -11,6 +11,7 @@ import { testGroqConnection } from './server/engines/groqEngine.js';
 import { testMistralConnection } from './server/engines/mistralEngine.js';
 import { router } from './server/engines/router.js';
 import { knowledgeService } from './server/knowledgeService.js';
+import { extractTextFromPdfBuffer } from './server/pdfUtils.js';
 import { searchService } from './server/searchService.js';
 import { db } from './server/storage.js';
 import { EngineType } from './src/types.js';
@@ -302,6 +303,24 @@ async function startServer() {
     }
   });
 
+  // Update company details (inline editing)
+  const handleUpdateCompanyRoute = (req: express.Request, res: express.Response) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      const updated = db.updateCompany(id, updates);
+      if (!updated) {
+        return res.status(404).json({ error: 'Empresa não encontrada' });
+      }
+      res.json({ success: true, empresa: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao atualizar empresa' });
+    }
+  };
+
+  app.put('/api/companies/:id', handleUpdateCompanyRoute);
+  app.post('/api/companies/:id', handleUpdateCompanyRoute);
+
   // Update company status
   app.post('/api/companies/:id/status', (req, res) => {
     try {
@@ -334,15 +353,27 @@ async function startServer() {
   // Upload and index CV/Portfolio
   app.post('/api/knowledge/upload', async (req, res) => {
     try {
-      const { tipo, nomeFicheiro, conteudoTexto, tamanhoBytes } = req.body;
-      if (!nomeFicheiro || !conteudoTexto) {
+      const { tipo, nomeFicheiro, conteudoTexto, conteudoBase64, tamanhoBytes } = req.body;
+      if (!nomeFicheiro || (!conteudoTexto && !conteudoBase64)) {
         return res.status(400).json({ error: 'Ficheiro ou conteúdo inválido' });
       }
+
+      let textToProcess = conteudoTexto || '';
+      if (conteudoBase64) {
+        try {
+          const pdfBuffer = Buffer.from(conteudoBase64, 'base64');
+          textToProcess = extractTextFromPdfBuffer(pdfBuffer);
+        } catch (pdfErr) {
+          console.warn('Erro ao processar buffer PDF:', pdfErr);
+          textToProcess = '[Documento PDF sem camada de texto pesquisável / digitalizado exclusivamente como imagem sem OCR]';
+        }
+      }
+
       const doc = await knowledgeService.indexDocument(
         tipo || 'cv',
         nomeFicheiro,
-        conteudoTexto,
-        tamanhoBytes || conteudoTexto.length
+        textToProcess,
+        tamanhoBytes || textToProcess.length
       );
       res.json({ success: true, documento: doc, todosDocumentos: db.getData().documentos });
     } catch (err: any) {

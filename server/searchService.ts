@@ -348,6 +348,18 @@ Designer Gráfico Sénior & Diretor de Arte
 Tel: +351 910 000 000 | LinkedIn: linkedin.com/in/danielrosaamaral
 Porto, Portugal`;
 
+      const emailObj = {
+        assunto: fallbackSubject,
+        corpo: fallbackBody,
+        dataGeracao: new Date().toISOString(),
+      };
+
+      if (type === 'oferta') {
+        db.updateOfferEmail(item.id, emailObj);
+      } else {
+        db.updateCompanyEmail(item.id, emailObj);
+      }
+
       return {
         assunto: fallbackSubject,
         corpo: fallbackBody,

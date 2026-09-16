@@ -225,13 +225,37 @@ export default function App() {
     }
   };
 
+  // Inline update of company details
+  const handleUpdateCompany = async (id: string, updates: Partial<SpontaneousCompany>): Promise<SpontaneousCompany> => {
+    try {
+      const res = await fetch(`/api/companies/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error('Falha ao atualizar candidatura espontânea');
+      const data = await res.json();
+      const updatedCompany: SpontaneousCompany = data.empresa;
+
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...updatedCompany } : c))
+      );
+      showNotice('Candidatura espontânea atualizada com sucesso.', 'success');
+      return updatedCompany;
+    } catch (err: any) {
+      console.error('Erro ao atualizar candidatura espontânea:', err);
+      showNotice('Erro ao atualizar candidatura espontânea na base de dados.', 'error');
+      throw err;
+    }
+  };
+
   // Open Email Preparer Modal
   const handleOpenEmail = async (item: JobOffer | SpontaneousCompany) => {
     const isOffer = 'empresa' in item;
     const type = isOffer ? 'oferta' : 'espontanea';
 
-    // If item already has a prepared email, show it; otherwise call generator
-    const existingEmail = item.emailGerado;
+    // If item already has a prepared email (emailPreparado or emailGerado), show it; otherwise call generator
+    const existingEmail = item.emailPreparado || item.emailGerado;
     let initialRecipient = '';
     if (isOffer) {
       initialRecipient = (item as JobOffer).contactoRelevante?.email || '';
@@ -273,7 +297,13 @@ export default function App() {
         destinatario: email.destinatario || initialRecipient,
       });
 
-      // Update state in memory
+      // Update state in memory (both emailPreparado and emailGerado for compatibility)
+      const emailRecord = {
+        assunto: email.assunto,
+        corpo: email.corpo,
+        dataGeracao: new Date().toISOString(),
+      };
+
       if (isOffer) {
         setOffers((prev) =>
           prev.map((o) =>
@@ -281,11 +311,8 @@ export default function App() {
               ? {
                   ...o,
                   estado: o.estado === 'novo' ? 'preparada' : o.estado,
-                  emailGerado: {
-                    assunto: email.assunto,
-                    corpo: email.corpo,
-                    dataGeracao: new Date().toISOString(),
-                  },
+                  emailPreparado: emailRecord,
+                  emailGerado: emailRecord,
                 }
               : o
           )
@@ -297,11 +324,8 @@ export default function App() {
               ? {
                   ...c,
                   estado: c.estado === 'novo' ? 'preparada' : c.estado,
-                  emailGerado: {
-                    assunto: email.assunto,
-                    corpo: email.corpo,
-                    dataGeracao: new Date().toISOString(),
-                  },
+                  emailPreparado: emailRecord,
+                  emailGerado: emailRecord,
                 }
               : c
           )
@@ -367,18 +391,41 @@ export default function App() {
       setIsUploading(true);
       showNotice(`A carregar e extrair ${file.name}...`, 'info');
 
-      // Read content as text or base64
-      const textContent = await file.text();
+      const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+      let requestBody: {
+        tipo: 'cv' | 'portfolio';
+        nomeFicheiro: string;
+        conteudoTexto?: string;
+        conteudoBase64?: string;
+        tamanhoBytes: number;
+      } = {
+        tipo,
+        nomeFicheiro: file.name,
+        tamanhoBytes: file.size,
+      };
+
+      if (isPdf) {
+        // Binary-safe Base64 read for PDF to preserve binary streams for extraction
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const commaIndex = result.indexOf(',');
+            resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+          };
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(file);
+        });
+        requestBody.conteudoBase64 = base64Data;
+      } else {
+        const textContent = await file.text();
+        requestBody.conteudoTexto = textContent || `Ficheiro ${file.name} carregado com sucesso.`;
+      }
 
       const res = await fetch('/api/knowledge/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo,
-          nomeFicheiro: file.name,
-          conteudoTexto: textContent || `Ficheiro ${file.name} carregado com sucesso.`,
-          tamanhoBytes: file.size,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!res.ok) throw new Error('Erro ao indexar ficheiro no servidor');
@@ -608,6 +655,7 @@ export default function App() {
                 onOpenEmail={handleOpenEmail}
                 onUpdateStatus={handleUpdateStatus}
                 onOpenGoogleSearch={(query) => setActiveSearchQuery(query)}
+                onUpdateCompany={handleUpdateCompany}
               />
             )}
 
