@@ -1,79 +1,46 @@
 import fs from 'fs';
 import path from 'path';
-import { EngineType } from '../src/types.js';
+import { ConnectionStatus, EngineConfig, EngineType } from '../src/types.js';
 
-export type ConnectionStatus = 'nao_configurada' | 'valida' | 'invalida' | 'erro_ligacao';
-
-export interface PersistentEngineEntry {
-  apiKey: string;
-  ativo: boolean;
-  prioridade: number;
-  modeloPreferido: string;
+interface LocalEngineConfig {
+  apiKey?: string;
+  ativo?: boolean;
+  prioridade?: number;
+  modeloPreferido?: string;
 }
 
-export interface PersistentConfig {
-  motores: {
-    gemini: PersistentEngineEntry;
-    groq: PersistentEngineEntry;
-    mistral: PersistentEngineEntry;
+interface ConfigSchema {
+  apiKeys: {
+    gemini?: string;
+    groq?: string;
+    mistral?: string;
   };
-  localizacaoBase: string;
-  distanciaKmPadrao: number;
-  tempoCarroMaxMin: number;
-}
-
-export interface PublicEngineConfig {
-  id: EngineType;
-  nome: string;
-  ativo: boolean;
-  prioridade: number;
-  modeloPreferido: string;
-  hasKey: boolean;
-  isEnvKey: boolean;
-  maskedKey: string;
-  connectionStatus: ConnectionStatus;
-  statusMessage?: string;
-  ultimosErros?: string;
+  general?: {
+    localizacaoBase?: string;
+    distanciaKmPadrao?: number;
+    tempoCarroMaxMin?: number;
+  };
+  motores?: {
+    gemini?: LocalEngineConfig;
+    groq?: LocalEngineConfig;
+    mistral?: LocalEngineConfig;
+  };
 }
 
 const DATA_DIR = path.join(process.cwd(), 'data');
 const CONFIG_FILE = path.join(DATA_DIR, 'config.json');
 
-const DEFAULT_CONFIG: PersistentConfig = {
-  motores: {
-    gemini: {
-      apiKey: '',
-      ativo: true,
-      prioridade: 1,
-      modeloPreferido: 'gemini-3.8-flash',
-    },
-    groq: {
-      apiKey: '',
-      ativo: true,
-      prioridade: 2,
-      modeloPreferido: 'llama-3.3-70b-versatile',
-    },
-    mistral: {
-      apiKey: '',
-      ativo: true,
-      prioridade: 3,
-      modeloPreferido: 'mistral-small-latest',
-    },
-  },
-  localizacaoBase: 'Porto / Maia, Portugal',
-  distanciaKmPadrao: 10,
-  tempoCarroMaxMin: 10,
-};
-
-// In-memory status cache for connection health
-const connectionStatusCache = new Map<EngineType, { status: ConnectionStatus; message?: string }>();
+const connectionStatusCache = new Map<
+  EngineType,
+  { status: ConnectionStatus; message: string; details?: string }
+>();
 
 class ConfigService {
-  private config: PersistentConfig | null = null;
+  private config: ConfigSchema;
 
   constructor() {
     this.ensureDataDir();
-    this.load();
+    this.config = this.loadConfig();
   }
 
   private ensureDataDir() {
@@ -82,173 +49,154 @@ class ConfigService {
     }
   }
 
-  public load(): PersistentConfig {
-    this.ensureDataDir();
-    if (!fs.existsSync(CONFIG_FILE)) {
-      this.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
-      this.saveToFile();
-      console.log(`[ConfigService] Ficheiro ${CONFIG_FILE} inicializado com sucesso.`);
-    } else {
-      try {
+  private loadConfig(): ConfigSchema {
+    try {
+      if (fs.existsSync(CONFIG_FILE)) {
         const raw = fs.readFileSync(CONFIG_FILE, 'utf-8');
         const parsed = JSON.parse(raw);
-        this.config = {
-          ...DEFAULT_CONFIG,
-          ...parsed,
-          motores: {
-            gemini: { ...DEFAULT_CONFIG.motores.gemini, ...(parsed.motores?.gemini || {}) },
-            groq: { ...DEFAULT_CONFIG.motores.groq, ...(parsed.motores?.groq || {}) },
-            mistral: { ...DEFAULT_CONFIG.motores.mistral, ...(parsed.motores?.mistral || {}) },
+        return {
+          apiKeys: {
+            gemini: parsed?.apiKeys?.gemini || parsed?.motores?.gemini?.apiKey || '',
+            groq: parsed?.apiKeys?.groq || parsed?.motores?.groq?.apiKey || '',
+            mistral: parsed?.apiKeys?.mistral || parsed?.motores?.mistral?.apiKey || '',
           },
+          general: parsed?.general || {},
+          motores: parsed?.motores || {},
         };
-        console.log(`[ConfigService] Configuração lida de ${CONFIG_FILE}.`);
-      } catch (err) {
-        console.error(`[ConfigService] Erro ao ler ${CONFIG_FILE}, a usar padrões:`, err);
-        this.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
       }
+    } catch (err) {
+      console.warn('Aviso: Não foi possível ler data/config.json, a inicializar configuração nova:', err);
     }
-    return this.config!;
+    return {
+      apiKeys: { gemini: '', groq: '', mistral: '' },
+      general: {},
+      motores: {},
+    };
   }
 
-  private saveToFile() {
-    if (!this.config) return;
+  private saveConfig() {
     try {
       this.ensureDataDir();
-      fs.writeFileSync(CONFIG_FILE, JSON.stringify(this.config, null, 2), 'utf-8');
+      const tmpFile = `${CONFIG_FILE}.tmp`;
+      fs.writeFileSync(tmpFile, JSON.stringify(this.config, null, 2), 'utf-8');
+      fs.renameSync(tmpFile, CONFIG_FILE);
     } catch (err) {
-      console.error(`[ConfigService] Erro ao guardar em ${CONFIG_FILE}:`, err);
-      throw err;
+      console.error('Erro ao guardar data/config.json:', err);
     }
   }
 
-  public getConfig(): PersistentConfig {
-    if (!this.config) {
-      this.load();
+  public getApiKey(engine: EngineType): string {
+    const storedKey = this.config.apiKeys[engine]?.trim() || this.config.motores?.[engine]?.apiKey?.trim();
+    if (storedKey) {
+      return storedKey;
     }
-    return this.config!;
-  }
 
-  public getEffectiveApiKey(engine: EngineType): string {
-    const cfg = this.getConfig();
-    const stored = cfg.motores[engine]?.apiKey?.trim();
-    if (stored) return stored;
-
-    // Fallback to environment variables
     if (engine === 'gemini') return process.env.GEMINI_API_KEY?.trim() || '';
     if (engine === 'groq') return process.env.GROQ_API_KEY?.trim() || '';
     if (engine === 'mistral') return process.env.MISTRAL_API_KEY?.trim() || '';
+
     return '';
   }
 
-  public maskApiKey(key: string): string {
-    if (!key || key.trim().length === 0) return '';
-    const clean = key.trim();
-    if (clean.startsWith('gsk_')) {
-      const tail = clean.slice(-4);
-      return `gsk_••••••••••••${tail}`;
-    }
-    if (clean.startsWith('AIza')) {
-      const tail = clean.slice(-4);
-      return `AIza••••••••${tail}`;
-    }
-    if (clean.length > 8) {
-      const head = clean.slice(0, 3);
-      const tail = clean.slice(-4);
-      return `${head}••••••••${tail}`;
-    }
-    return '••••••••';
+  public getEffectiveApiKey(engine: EngineType): string {
+    return this.getApiKey(engine);
   }
 
-  public getPublicEngineConfigs(): Record<EngineType, PublicEngineConfig> {
-    const cfg = this.getConfig();
-    const engines: EngineType[] = ['gemini', 'groq', 'mistral'];
-    const names: Record<EngineType, string> = {
-      gemini: 'Google Gemini',
-      groq: 'Groq Cloud',
-      mistral: 'Mistral AI',
+  public setApiKey(engine: EngineType, apiKey: string) {
+    const trimmed = apiKey.trim();
+    this.config.apiKeys[engine] = trimmed;
+    if (!this.config.motores) this.config.motores = {};
+    if (!this.config.motores[engine]) this.config.motores[engine] = {};
+    this.config.motores[engine]!.apiKey = trimmed;
+    this.saveConfig();
+  }
+
+  public updateEngineKey(engine: EngineType, apiKey: string) {
+    this.setApiKey(engine, apiKey);
+    return this.getEngineStatus(engine);
+  }
+
+  public getMaskedKey(key: string): string {
+    const trimmed = key.trim();
+    if (!trimmed) return '';
+    if (trimmed.length <= 4) return '••••';
+    return `••••••••${trimmed.slice(-4)}`;
+  }
+
+  public getEngineStatus(engine: EngineType): {
+    configured: boolean;
+    hasKey: boolean;
+    isEnvKey: boolean;
+    maskedKey: string;
+    temChaveAmbiente: boolean;
+  } {
+    const storedKey = this.config.apiKeys[engine]?.trim() || this.config.motores?.[engine]?.apiKey?.trim();
+    const envKey =
+      engine === 'gemini'
+        ? process.env.GEMINI_API_KEY?.trim()
+        : engine === 'groq'
+        ? process.env.GROQ_API_KEY?.trim()
+        : process.env.MISTRAL_API_KEY?.trim();
+
+    const activeKey = storedKey || envKey || '';
+    const isEnv = !storedKey && !!envKey;
+
+    return {
+      configured: !!activeKey,
+      hasKey: !!activeKey,
+      isEnvKey: isEnv,
+      maskedKey: this.getMaskedKey(activeKey),
+      temChaveAmbiente: !!envKey,
     };
+  }
 
-    const result = {} as Record<EngineType, PublicEngineConfig>;
+  public getPublicEngineConfigs(): Record<EngineType, Partial<EngineConfig>> {
+    const engines: EngineType[] = ['gemini', 'groq', 'mistral'];
+    const res: Partial<Record<EngineType, Partial<EngineConfig>>> = {};
 
-    for (const id of engines) {
-      const entry = cfg.motores[id];
-      const hasStoredKey = !!entry.apiKey?.trim();
-      const envKey = id === 'gemini' ? process.env.GEMINI_API_KEY?.trim() : id === 'groq' ? process.env.GROQ_API_KEY?.trim() : process.env.MISTRAL_API_KEY?.trim();
-      const hasEnvKey = !!envKey;
-      const effectiveKey = hasStoredKey ? entry.apiKey.trim() : (envKey || '');
-      const hasKey = !!effectiveKey;
+    for (const eng of engines) {
+      const status = this.getEngineStatus(eng);
+      const local = this.config.motores?.[eng] || {};
+      const cachedConn = connectionStatusCache.get(eng);
 
-      const cachedStatus = connectionStatusCache.get(id);
-      let status: ConnectionStatus = 'nao_configurada';
-      let message = 'Não configurada';
-
-      if (cachedStatus) {
-        status = cachedStatus.status;
-        message = cachedStatus.message || '';
-      } else if (hasKey) {
-        status = 'valida';
-        message = hasStoredKey ? 'Chave configurada em data/config.json' : 'Chave ativa no ambiente do servidor';
-      }
-
-      result[id] = {
-        id,
-        nome: names[id],
-        ativo: entry.ativo,
-        prioridade: entry.prioridade,
-        modeloPreferido: entry.modeloPreferido,
-        hasKey,
-        isEnvKey: !hasStoredKey && hasEnvKey,
-        maskedKey: this.maskApiKey(effectiveKey),
-        connectionStatus: status,
-        statusMessage: message,
+      res[eng] = {
+        hasKey: status.hasKey,
+        isEnvKey: status.isEnvKey,
+        maskedKey: status.maskedKey,
+        apiKeyConfigurada: status.configured,
+        temChaveAmbiente: status.temChaveAmbiente,
+        ativo: local.ativo !== undefined ? local.ativo : true,
+        prioridade: local.prioridade || (eng === 'gemini' ? 1 : eng === 'groq' ? 2 : 3),
+        modeloPreferido: local.modeloPreferido || '',
+        connectionStatus: cachedConn?.status || (status.hasKey ? 'valida' : 'nao_configurada'),
+        statusMessage: cachedConn?.message || '',
       };
     }
 
-    return result;
-  }
-
-  public updateEngineKey(engine: EngineType, key: string): PublicEngineConfig {
-    const cfg = this.getConfig();
-    cfg.motores[engine].apiKey = key.trim();
-    this.saveToFile();
-
-    // Clear or update connection status cache
-    if (!key.trim()) {
-      connectionStatusCache.delete(engine);
-    }
-
-    return this.getPublicEngineConfigs()[engine];
+    return res as Record<EngineType, Partial<EngineConfig>>;
   }
 
   public updateEngineSettings(
     engine: EngineType,
-    updates: { ativo?: boolean; prioridade?: number; modeloPreferido?: string }
-  ): PublicEngineConfig {
-    const cfg = this.getConfig();
-    if (typeof updates.ativo === 'boolean') {
-      cfg.motores[engine].ativo = updates.ativo;
-    }
-    if (typeof updates.prioridade === 'number') {
-      cfg.motores[engine].prioridade = updates.prioridade;
-    }
-    if (updates.modeloPreferido) {
-      cfg.motores[engine].modeloPreferido = updates.modeloPreferido;
-    }
-    this.saveToFile();
+    settings: { ativo?: boolean; prioridade?: number; modeloPreferido?: string }
+  ) {
+    if (!this.config.motores) this.config.motores = {};
+    if (!this.config.motores[engine]) this.config.motores[engine] = {};
+
+    if (typeof settings.ativo === 'boolean') this.config.motores[engine]!.ativo = settings.ativo;
+    if (typeof settings.prioridade === 'number') this.config.motores[engine]!.prioridade = settings.prioridade;
+    if (settings.modeloPreferido !== undefined) this.config.motores[engine]!.modeloPreferido = settings.modeloPreferido;
+
+    this.saveConfig();
     return this.getPublicEngineConfigs()[engine];
   }
 
-  public updateGeneralSettings(updates: {
-    localizacaoBase?: string;
-    distanciaKmPadrao?: number;
-    tempoCarroMaxMin?: number;
-  }) {
-    const cfg = this.getConfig();
-    if (updates.localizacaoBase) cfg.localizacaoBase = updates.localizacaoBase;
-    if (typeof updates.distanciaKmPadrao === 'number') cfg.distanciaKmPadrao = updates.distanciaKmPadrao;
-    if (typeof updates.tempoCarroMaxMin === 'number') cfg.tempoCarroMaxMin = updates.tempoCarroMaxMin;
-    this.saveToFile();
-    return cfg;
+  public updateGeneralSettings(settings: { localizacaoBase?: string; distanciaKmPadrao?: number; tempoCarroMaxMin?: number }) {
+    if (!this.config.general) this.config.general = {};
+    if (settings.localizacaoBase) this.config.general.localizacaoBase = settings.localizacaoBase;
+    if (settings.distanciaKmPadrao) this.config.general.distanciaKmPadrao = settings.distanciaKmPadrao;
+    if (settings.tempoCarroMaxMin) this.config.general.tempoCarroMaxMin = settings.tempoCarroMaxMin;
+    this.saveConfig();
   }
 
   public async testConnection(

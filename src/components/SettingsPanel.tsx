@@ -36,9 +36,37 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
 
   // Engine toggles & models
   const [motores, setMotores] = useState<Record<EngineType, EngineConfig>>({ ...settings.motores });
-  // Custom API keys entered in UI
-  const [groqKeyInput, setGroqKeyInput] = useState('');
-  const [mistralKeyInput, setMistralKeyInput] = useState('');
+
+  // Custom API keys entered in UI per engine
+  const [keyInputs, setKeyInputs] = useState<Record<EngineType, string>>({
+    gemini: '',
+    groq: '',
+    mistral: '',
+  });
+  const [savingKey, setSavingKey] = useState<Record<EngineType, boolean>>({
+    gemini: false,
+    groq: false,
+    mistral: false,
+  });
+  const [testingEngine, setTestingEngine] = useState<Record<EngineType, boolean>>({
+    gemini: false,
+    groq: false,
+    mistral: false,
+  });
+  const [testResults, setTestResults] = useState<
+    Record<
+      EngineType,
+      {
+        success: boolean;
+        status: 'valid' | 'auth_error' | 'quota_error' | 'network_error' | 'service_unavailable' | string;
+        message: string;
+      } | null
+    >
+  >({
+    gemini: null,
+    groq: null,
+    mistral: null,
+  });
 
   // Routing tasks
   const [roteamento, setRoteamento] = useState({ ...settings.roteamento });
@@ -67,9 +95,82 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
     }));
   };
 
+  const handleSaveKey = async (id: EngineType) => {
+    try {
+      setSavingKey((prev) => ({ ...prev, [id]: true }));
+      const res = await fetch('/api/settings/keys', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ engine: id, apiKey: keyInputs[id] }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Erro ao guardar chave');
+
+      setMotores((prev) => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          apiKeyConfigurada: data.configured,
+          maskedKey: data.maskedKey,
+        },
+      }));
+
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 3000);
+    } catch (err: any) {
+      alert(err?.message || 'Erro ao guardar chave de API');
+    } finally {
+      setSavingKey((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
+  const handleTestConnection = async (id: EngineType) => {
+    try {
+      setTestingEngine((prev) => ({ ...prev, [id]: true }));
+      setTestResults((prev) => ({ ...prev, [id]: null }));
+      const res = await fetch('/api/settings/test-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ engine: id, apiKey: keyInputs[id] || undefined }),
+      });
+      const data = await res.json();
+      setTestResults((prev) => ({
+        ...prev,
+        [id]: {
+          success: data.success,
+          status: data.status,
+          message: data.message,
+        },
+      }));
+    } catch (err: any) {
+      setTestResults((prev) => ({
+        ...prev,
+        [id]: {
+          success: false,
+          status: 'network_error',
+          message: `Erro ao comunicar com o servidor: ${err?.message || String(err)}`,
+        },
+      }));
+    } finally {
+      setTestingEngine((prev) => ({ ...prev, [id]: false }));
+    }
+  };
+
   const handleSave = async () => {
     try {
       setIsSaving(true);
+
+      // Also save any typed keys if provided
+      for (const id of ['gemini', 'groq', 'mistral'] as const) {
+        if (keyInputs[id]?.trim()) {
+          await fetch('/api/settings/keys', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ engine: id, apiKey: keyInputs[id] }),
+          });
+        }
+      }
+
       await onSaveSettings({
         localizacaoBase: localizacao,
         distanciaKmPadrao: distanciaPadrao,
@@ -207,128 +308,170 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
             </h3>
           </div>
           <span className="text-[11px] font-mono text-neutral-500">
-            Nenhuma chamada é desperdiçada · Filtragem antes da IA
+            Nenhuma chamada é desperdiçada · Persistência Local em data/config.json
           </span>
         </div>
 
         {/* Engine Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Gemini */}
-          <div className="border border-neutral-200 rounded-md p-4 bg-neutral-50/50 space-y-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <h4 className="font-medium text-neutral-900">Google Gemini</h4>
-                <p className="text-[11px] text-neutral-500 font-mono">gemini-3.8-flash</p>
-              </div>
-              <span className="inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
-                <ShieldCheck className="w-3 h-3" /> Chave no Ambiente
-              </span>
-            </div>
-            <p className="text-[11px] text-neutral-600 leading-relaxed">
-              Motor primário nativo do ambiente AI Studio. Utilizado com telemetria server-side para pesquisa, raciocínio factual e elaboração de candidaturas.
-            </p>
-            <div className="flex items-center justify-between pt-2 border-t border-neutral-200">
-              <label className="flex items-center gap-1.5 cursor-pointer text-[11px]">
-                <input
-                  type="checkbox"
-                  checked={motores.gemini.ativo}
-                  onChange={() => handleToggleEngine('gemini')}
-                  className="rounded text-neutral-900 accent-[#1D1D1F]"
-                />
-                <span>Ativo</span>
-              </label>
-              <div className="flex items-center gap-1">
-                <span className="text-neutral-400 text-[10px]">Prioridade:</span>
-                <select
-                  value={motores.gemini.prioridade}
-                  onChange={(e) => handleUpdatePriority('gemini', Number(e.target.value))}
-                  className="bg-white border border-neutral-200 rounded px-1.5 py-0.5 text-[11px]"
-                >
-                  <option value={1}>1 (Primário)</option>
-                  <option value={2}>2 (Secundário)</option>
-                  <option value={3}>3 (Fallback)</option>
-                </select>
-              </div>
-            </div>
-          </div>
+          {(
+            [
+              {
+                id: 'gemini' as const,
+                name: 'Google Gemini',
+                label: 'Gemini',
+                model: 'gemini-3.8-flash',
+                desc: 'Motor primário nativo do ambiente AI Studio. Utilizado para pesquisa, raciocínio factual e elaboração de candidaturas.',
+              },
+              {
+                id: 'groq' as const,
+                name: 'Groq Cloud',
+                label: 'Groq',
+                model: 'llama-3.3-70b-versatile',
+                desc: 'Inferência de alta velocidade com deteção automática de rate limit 429 e failover imediato para o próximo motor.',
+              },
+              {
+                id: 'mistral' as const,
+                name: 'Mistral AI',
+                label: 'Mistral',
+                model: 'mistral-small-latest',
+                desc: 'Excelente capacidade linguística em português europeu e estruturação de dados de recrutamento.',
+              },
+            ] as const
+          ).map((engine) => {
+            const config = motores[engine.id];
+            const hasKey = config?.apiKeyConfigurada || config?.temChaveAmbiente;
+            return (
+              <div
+                key={engine.id}
+                className="border border-neutral-200 rounded-md p-4 bg-neutral-50/50 space-y-3 flex flex-col justify-between"
+              >
+                <div className="space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <h4 className="font-medium text-neutral-900">{engine.name}</h4>
+                      <p className="text-[11px] text-neutral-500 font-mono">{engine.model}</p>
+                    </div>
+                    <span
+                      className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded border ${
+                        hasKey
+                          ? 'bg-emerald-100 text-emerald-800 border-emerald-200'
+                          : 'bg-neutral-200 text-neutral-700 border-neutral-300'
+                      }`}
+                    >
+                      {hasKey ? (
+                        <>
+                          <ShieldCheck className="w-3 h-3" /> Configurado
+                        </>
+                      ) : (
+                        'Sem Chave'
+                      )}
+                    </span>
+                  </div>
 
-          {/* Groq */}
-          <div className="border border-neutral-200 rounded-md p-4 bg-neutral-50/50 space-y-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <h4 className="font-medium text-neutral-900">Groq Cloud</h4>
-                <p className="text-[11px] text-neutral-500 font-mono">llama-3.3-70b-versatile</p>
-              </div>
-              <span className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded ${motores.groq.temChaveAmbiente ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-700'}`}>
-                {motores.groq.temChaveAmbiente ? 'Chave Configurada' : 'Opcional'}
-              </span>
-            </div>
-            <p className="text-[11px] text-neutral-600 leading-relaxed">
-              Infeência de alta velocidade com deteção automática de rate limit 429 e failover imediato para o próximo motor.
-            </p>
-            <div className="flex items-center justify-between pt-2 border-t border-neutral-200">
-              <label className="flex items-center gap-1.5 cursor-pointer text-[11px]">
-                <input
-                  type="checkbox"
-                  checked={motores.groq.ativo}
-                  onChange={() => handleToggleEngine('groq')}
-                  className="rounded text-neutral-900 accent-[#1D1D1F]"
-                />
-                <span>Ativo</span>
-              </label>
-              <div className="flex items-center gap-1">
-                <span className="text-neutral-400 text-[10px]">Prioridade:</span>
-                <select
-                  value={motores.groq.prioridade}
-                  onChange={(e) => handleUpdatePriority('groq', Number(e.target.value))}
-                  className="bg-white border border-neutral-200 rounded px-1.5 py-0.5 text-[11px]"
-                >
-                  <option value={1}>1 (Primário)</option>
-                  <option value={2}>2 (Secundário)</option>
-                  <option value={3}>3 (Fallback)</option>
-                </select>
-              </div>
-            </div>
-          </div>
+                  <p className="text-[11px] text-neutral-600 leading-relaxed">{engine.desc}</p>
 
-          {/* Mistral */}
-          <div className="border border-neutral-200 rounded-md p-4 bg-neutral-50/50 space-y-3">
-            <div className="flex items-start justify-between">
-              <div>
-                <h4 className="font-medium text-neutral-900">Mistral AI</h4>
-                <p className="text-[11px] text-neutral-500 font-mono">mistral-small-latest</p>
+                  {/* API Key Input & Action Block */}
+                  <div className="space-y-1.5 pt-2 border-t border-neutral-200">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-[11px] font-medium text-neutral-700">
+                        {engine.name} API Key:
+                      </label>
+                      {config?.maskedKey && (
+                        <span className="text-[10px] font-mono text-neutral-500">
+                          Guardada: <strong className="text-neutral-800">{config.maskedKey}</strong>
+                        </span>
+                      )}
+                    </div>
+
+                    <input
+                      type="text"
+                      value={keyInputs[engine.id]}
+                      onChange={(e) =>
+                        setKeyInputs((prev) => ({ ...prev, [engine.id]: e.target.value }))
+                      }
+                      placeholder={`Colar ${engine.label} API Key aqui`}
+                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-[11px] text-neutral-900 focus:outline-none focus:border-neutral-600 font-mono placeholder:font-sans placeholder:text-neutral-400"
+                    />
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => handleTestConnection(engine.id)}
+                        disabled={testingEngine[engine.id]}
+                        className="px-3 py-1.5 bg-white border border-neutral-300 hover:bg-neutral-100 text-neutral-800 rounded text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {testingEngine[engine.id] ? 'A testar...' : 'Testar ligação'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleSaveKey(engine.id)}
+                        disabled={savingKey[engine.id]}
+                        className="px-3 py-1.5 bg-[#1D1D1F] hover:bg-black text-white rounded text-[11px] font-medium transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {savingKey[engine.id] ? 'A guardar...' : 'Guardar'}
+                      </button>
+                    </div>
+
+                    {/* Test result feedback message */}
+                    {testResults[engine.id] && (
+                      <div
+                        className={`p-2.5 rounded text-[11px] border mt-2 font-sans ${
+                          testResults[engine.id]?.success
+                            ? 'bg-emerald-50 border-emerald-200 text-emerald-800'
+                            : testResults[engine.id]?.status === 'quota_error'
+                            ? 'bg-amber-50 border-amber-200 text-amber-800'
+                            : testResults[engine.id]?.status === 'service_unavailable'
+                            ? 'bg-amber-50 border-amber-200 text-amber-800'
+                            : 'bg-rose-50 border-rose-200 text-rose-800'
+                        }`}
+                      >
+                        <div className="font-semibold capitalize flex items-center gap-1.5">
+                          {testResults[engine.id]?.success ? (
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                          )}
+                          <span>
+                            {testResults[engine.id]?.status === 'valid' && 'Ligação Válida'}
+                            {testResults[engine.id]?.status === 'auth_error' && 'Erro de Autenticação'}
+                            {testResults[engine.id]?.status === 'quota_error' && 'Limite / Quota Atingido'}
+                            {testResults[engine.id]?.status === 'network_error' && 'Erro de Rede'}
+                            {testResults[engine.id]?.status === 'service_unavailable' && 'Serviço Indisponível'}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 leading-snug">{testResults[engine.id]?.message}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-3 mt-3 border-t border-neutral-200">
+                  <label className="flex items-center gap-1.5 cursor-pointer text-[11px]">
+                    <input
+                      type="checkbox"
+                      checked={config?.ativo || false}
+                      onChange={() => handleToggleEngine(engine.id)}
+                      className="rounded text-neutral-900 accent-[#1D1D1F]"
+                    />
+                    <span>Ativo</span>
+                  </label>
+                  <div className="flex items-center gap-1">
+                    <span className="text-neutral-400 text-[10px]">Prioridade:</span>
+                    <select
+                      value={config?.prioridade || 1}
+                      onChange={(e) => handleUpdatePriority(engine.id, Number(e.target.value))}
+                      className="bg-white border border-neutral-200 rounded px-1.5 py-0.5 text-[11px]"
+                    >
+                      <option value={1}>1 (Primário)</option>
+                      <option value={2}>2 (Secundário)</option>
+                      <option value={3}>3 (Fallback)</option>
+                    </select>
+                  </div>
+                </div>
               </div>
-              <span className={`inline-flex items-center gap-1 text-[10px] font-mono px-2 py-0.5 rounded ${motores.mistral.temChaveAmbiente ? 'bg-emerald-100 text-emerald-800' : 'bg-neutral-200 text-neutral-700'}`}>
-                {motores.mistral.temChaveAmbiente ? 'Chave Configurada' : 'Opcional'}
-              </span>
-            </div>
-            <p className="text-[11px] text-neutral-600 leading-relaxed">
-              Excelente capacidade linguística em português europeu e estruturação de dados de recrutamento.
-            </p>
-            <div className="flex items-center justify-between pt-2 border-t border-neutral-200">
-              <label className="flex items-center gap-1.5 cursor-pointer text-[11px]">
-                <input
-                  type="checkbox"
-                  checked={motores.mistral.ativo}
-                  onChange={() => handleToggleEngine('mistral')}
-                  className="rounded text-neutral-900 accent-[#1D1D1F]"
-                />
-                <span>Ativo</span>
-              </label>
-              <div className="flex items-center gap-1">
-                <span className="text-neutral-400 text-[10px]">Prioridade:</span>
-                <select
-                  value={motores.mistral.prioridade}
-                  onChange={(e) => handleUpdatePriority('mistral', Number(e.target.value))}
-                  className="bg-white border border-neutral-200 rounded px-1.5 py-0.5 text-[11px]"
-                >
-                  <option value={1}>1 (Primário)</option>
-                  <option value={2}>2 (Secundário)</option>
-                  <option value={3}>3 (Fallback)</option>
-                </select>
-              </div>
-            </div>
-          </div>
+            );
+          })}
         </div>
 
         {/* Task routing matrix */}
@@ -434,7 +577,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
           <span>Pronto para GitHub & Google AI Studio</span>
         </h3>
         <p className="text-neutral-600 text-xs leading-relaxed">
-          A aplicação está estruturada de forma 100% modular, sem chaves secretas codificadas no repositório. Podes exportar para o GitHub ou clonar livremente. A base de dados em <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[11px]">data/db.json</code> mantém todos os registos intactos em cada atualização.
+          A aplicação está estruturada de forma 100% modular, sem chaves secretas codificadas no repositório. Podes exportar para o GitHub ou clonar livremente. A base de dados em <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[11px]">data/db.json</code> mantém todos os registos intactos em cada atualização e a configuração de chaves fica segura em <code className="bg-neutral-100 px-1 py-0.5 rounded font-mono text-[11px]">data/config.json</code>.
         </p>
       </div>
     </div>

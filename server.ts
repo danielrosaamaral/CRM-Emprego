@@ -2,20 +2,20 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 import express from 'express';
-import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { configService } from './server/configService.js';
 import { csvService } from './server/csvService.js';
+import { testGeminiConnection } from './server/engines/geminiEngine.js';
+import { testGroqConnection } from './server/engines/groqEngine.js';
+import { testMistralConnection } from './server/engines/mistralEngine.js';
 import { router } from './server/engines/router.js';
 import { knowledgeService } from './server/knowledgeService.js';
 import { searchService } from './server/searchService.js';
 import { db } from './server/storage.js';
+import { EngineType } from './src/types.js';
 
 async function startServer() {
-  // Ensure persistent configuration is loaded on server startup
-  configService.load();
-
   const app = express();
   const PORT = 3000;
 
@@ -32,35 +32,18 @@ async function startServer() {
   app.get('/api/data', (req, res) => {
     try {
       const data = db.getData();
-      const publicEngines = configService.getPublicEngineConfigs();
+      const definicoes = JSON.parse(JSON.stringify(data.definicoes));
 
-      // Merge persistent engine configuration from data/config.json with safe masked keys
-      const definicoes = {
-        ...data.definicoes,
-        localizacaoBase: configService.getConfig().localizacaoBase || data.definicoes.localizacaoBase,
-        distanciaKmPadrao: configService.getConfig().distanciaKmPadrao || data.definicoes.distanciaKmPadrao,
-        tempoCarroMaxMin: configService.getConfig().tempoCarroMaxMin || data.definicoes.tempoCarroMaxMin,
-        motores: {
-          gemini: {
-            ...data.definicoes.motores.gemini,
-            ...publicEngines.gemini,
-            apiKeyConfigurada: publicEngines.gemini.hasKey,
-            temChaveAmbiente: publicEngines.gemini.isEnvKey || !!process.env.GEMINI_API_KEY,
-          },
-          groq: {
-            ...data.definicoes.motores.groq,
-            ...publicEngines.groq,
-            apiKeyConfigurada: publicEngines.groq.hasKey,
-            temChaveAmbiente: publicEngines.groq.isEnvKey || !!process.env.GROQ_API_KEY,
-          },
-          mistral: {
-            ...data.definicoes.motores.mistral,
-            ...publicEngines.mistral,
-            apiKeyConfigurada: publicEngines.mistral.hasKey,
-            temChaveAmbiente: publicEngines.mistral.isEnvKey || !!process.env.MISTRAL_API_KEY,
-          },
-        },
-      };
+      for (const engineId of ['gemini', 'groq', 'mistral'] as const) {
+        const status = configService.getEngineStatus(engineId);
+        if (definicoes.motores[engineId]) {
+          definicoes.motores[engineId].apiKeyConfigurada = status.configured;
+          definicoes.motores[engineId].temChaveAmbiente = status.temChaveAmbiente;
+          definicoes.motores[engineId].maskedKey = status.maskedKey;
+          definicoes.motores[engineId].hasKey = status.hasKey;
+          definicoes.motores[engineId].isEnvKey = status.isEnvKey;
+        }
+      }
 
       res.json({
         ofertas: data.ofertas,
@@ -84,38 +67,41 @@ async function startServer() {
     }
   });
 
-  // Save/Update an engine API key into data/config.json
-  app.post('/api/config/key', (req, res) => {
+  // Handler for saving/updating engine API Key
+  const handleSaveEngineKey = (req: express.Request, res: express.Response) => {
     try {
       const { engine, apiKey } = req.body;
       if (!engine || !['gemini', 'groq', 'mistral'].includes(engine)) {
         return res.status(400).json({ error: 'Motor de IA inválido' });
       }
-
       if (typeof apiKey !== 'string') {
-        return res.status(400).json({ error: 'A chave de API deve ser uma string' });
+        return res.status(400).json({ error: 'Formato de chave de API inválido' });
       }
 
-      const updatedEngine = configService.updateEngineKey(engine, apiKey);
+      const updated = configService.updateEngineKey(engine as EngineType, apiKey);
+      const status = configService.getEngineStatus(engine as EngineType);
 
-      // Sync with storage DB
-      const currentData = db.getData();
-      const currentEngConfig = currentData.definicoes.motores[engine as 'gemini' | 'groq' | 'mistral'];
-      if (currentEngConfig) {
-        currentEngConfig.apiKeyConfigurada = updatedEngine.hasKey;
-        db.updateSettings({
-          motores: {
-            ...currentData.definicoes.motores,
-            [engine]: currentEngConfig,
-          },
-        });
+      // Update db settings config state
+      const data = db.getData();
+      if (data.definicoes.motores[engine as EngineType]) {
+        data.definicoes.motores[engine as EngineType].apiKeyConfigurada = status.configured;
+        db.updateSettings({ motores: data.definicoes.motores });
       }
 
-      res.json({ success: true, engine: updatedEngine });
+      res.json({
+        success: true,
+        engine: updated,
+        configured: status.configured,
+        maskedKey: status.maskedKey,
+        message: status.configured ? 'Chave de API guardada com sucesso' : 'Chave de API removida',
+      });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao guardar chave de API' });
     }
-  });
+  };
+
+  app.post('/api/config/key', handleSaveEngineKey);
+  app.post('/api/settings/keys', handleSaveEngineKey);
 
   // Save/Update engine attributes (ativo, prioridade, modeloPreferido) into data/config.json
   app.post('/api/config/engine', (req, res) => {
@@ -129,7 +115,7 @@ async function startServer() {
 
       // Sync with storage DB
       const currentData = db.getData();
-      const currentEngConfig = currentData.definicoes.motores[engine as 'gemini' | 'groq' | 'mistral'];
+      const currentEngConfig = currentData.definicoes.motores[engine as EngineType];
       if (currentEngConfig) {
         if (typeof ativo === 'boolean') currentEngConfig.ativo = ativo;
         if (typeof prioridade === 'number') currentEngConfig.prioridade = prioridade;
@@ -148,30 +134,66 @@ async function startServer() {
     }
   });
 
-  // Test live connection to an engine API
-  app.post('/api/config/test', async (req, res) => {
+  // Handler for testing engine connection
+  const handleTestEngineConnection = async (req: express.Request, res: express.Response) => {
     try {
       const { engine, apiKey } = req.body;
       if (!engine || !['gemini', 'groq', 'mistral'].includes(engine)) {
         return res.status(400).json({ error: 'Motor de IA inválido' });
       }
 
-      const result = await configService.testConnection(engine, apiKey);
-      res.json({
-        success: result.status === 'valida',
-        engine,
-        ...result,
-      });
+      let result: {
+        success: boolean;
+        status: string;
+        message: string;
+        details?: string;
+      };
+
+      if (engine === 'gemini') {
+        const testRes = await testGeminiConnection(apiKey);
+        result = {
+          success: testRes.success,
+          status: testRes.status,
+          message: testRes.message,
+        };
+      } else if (engine === 'groq') {
+        const testRes = await testGroqConnection(apiKey);
+        result = {
+          success: testRes.success,
+          status: testRes.status,
+          message: testRes.message,
+        };
+      } else if (engine === 'mistral') {
+        const testRes = await testMistralConnection(apiKey);
+        result = {
+          success: testRes.success,
+          status: testRes.status,
+          message: testRes.message,
+        };
+      } else {
+        const testRes = await configService.testConnection(engine, apiKey);
+        result = {
+          success: testRes.status === 'valida',
+          status: testRes.status,
+          message: testRes.message,
+          details: testRes.details,
+        };
+      }
+
+      res.json(result);
     } catch (err: any) {
       res.status(500).json({
         success: false,
-        status: 'erro_ligacao',
-        message: err?.message || 'Erro ao testar ligação',
+        status: 'network_error',
+        message: `Erro interno ao testar ligação: ${err?.message || String(err)}`,
       });
     }
-  });
+  };
 
-  // Update general settings (location, engine configurations, routing)
+  app.post('/api/config/test', handleTestEngineConnection);
+  app.post('/api/settings/test-key', handleTestEngineConnection);
+
+  // Update settings (e.g. location, engine configurations, routing)
   app.post('/api/settings', (req, res) => {
     try {
       const body = req.body;
@@ -198,7 +220,20 @@ async function startServer() {
         }
       }
 
-      res.json({ success: true, definicoes: newSettings });
+      // Include masked key state in response
+      const responseSettings = JSON.parse(JSON.stringify(newSettings));
+      for (const engineId of ['gemini', 'groq', 'mistral'] as const) {
+        const status = configService.getEngineStatus(engineId);
+        if (responseSettings.motores[engineId]) {
+          responseSettings.motores[engineId].apiKeyConfigurada = status.configured;
+          responseSettings.motores[engineId].temChaveAmbiente = status.temChaveAmbiente;
+          responseSettings.motores[engineId].maskedKey = status.maskedKey;
+          responseSettings.motores[engineId].hasKey = status.hasKey;
+          responseSettings.motores[engineId].isEnvKey = status.isEnvKey;
+        }
+      }
+
+      res.json({ success: true, definicoes: responseSettings });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao atualizar definições' });
     }
@@ -360,30 +395,11 @@ async function startServer() {
       appType: 'spa',
     });
     app.use(vite.middlewares);
-
-    // Explicit fallback for SPA routes in dev mode to guarantee index.html is transformed and served
-    app.use('*', async (req, res, next) => {
-      const url = req.originalUrl;
-      try {
-        const indexPath = path.resolve(process.cwd(), 'index.html');
-        let template = fs.readFileSync(indexPath, 'utf-8');
-        template = await vite.transformIndexHtml(url, template);
-        res.status(200).set({ 'Content-Type': 'text/html' }).end(template);
-      } catch (e) {
-        vite.ssrFixStacktrace(e as Error);
-        next(e);
-      }
-    });
   } else {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      const indexPath = path.join(distPath, 'index.html');
-      if (fs.existsSync(indexPath)) {
-        res.sendFile(indexPath);
-      } else {
-        res.sendFile(path.join(process.cwd(), 'index.html'));
-      }
+      res.sendFile(path.join(distPath, 'index.html'));
     });
   }
 

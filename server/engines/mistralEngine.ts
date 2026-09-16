@@ -1,3 +1,5 @@
+import { configService } from '../configService.js';
+
 export async function runMistral(
   prompt: string,
   apiKey?: string,
@@ -5,7 +7,7 @@ export async function runMistral(
   model = 'mistral-small-latest',
   jsonMode = false
 ): Promise<string> {
-  const key = apiKey || process.env.MISTRAL_API_KEY;
+  const key = apiKey || configService.getApiKey('mistral');
   if (!key) {
     throw new Error('Chave de API do Mistral não configurada.');
   }
@@ -43,5 +45,74 @@ export async function runMistral(
 }
 
 export function isMistralAvailable(key?: string): boolean {
-  return !!(key || process.env.MISTRAL_API_KEY);
+  return !!(key || configService.getApiKey('mistral'));
+}
+
+export async function testMistralConnection(overrideKey?: string): Promise<{
+  success: boolean;
+  status: 'valid' | 'auth_error' | 'quota_error' | 'network_error' | 'service_unavailable';
+  message: string;
+}> {
+  const key = overrideKey || configService.getApiKey('mistral');
+  if (!key) {
+    return {
+      success: false,
+      status: 'auth_error',
+      message: 'Nenhuma chave de API fornecida ou configurada para o Mistral AI.',
+    };
+  }
+
+  try {
+    const res = await fetch('https://api.mistral.ai/v1/models', {
+      method: 'GET',
+      headers: {
+        Authorization: `Bearer ${key}`,
+      },
+    });
+
+    if (res.ok) {
+      return {
+        success: true,
+        status: 'valid',
+        message: 'Ligação ao Mistral AI (Mistral Small / Large) estabelecida com sucesso.',
+      };
+    }
+
+    if (res.status === 401 || res.status === 403) {
+      return {
+        success: false,
+        status: 'auth_error',
+        message: 'Chave de API do Mistral inválida ou não autorizada (401/403).',
+      };
+    }
+
+    if (res.status === 429) {
+      return {
+        success: false,
+        status: 'quota_error',
+        message: 'Limite de quota/taxa ativado no Mistral AI (Rate Limit 429).',
+      };
+    }
+
+    if (res.status >= 500) {
+      return {
+        success: false,
+        status: 'service_unavailable',
+        message: `Serviço Mistral AI temporariamente indisponível (${res.status}).`,
+      };
+    }
+
+    const errText = await res.text();
+    return {
+      success: false,
+      status: 'auth_error',
+      message: `Erro ao validar Mistral (${res.status}): ${errText}`,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      status: 'network_error',
+      message: `Erro de rede ao ligar ao Mistral AI: ${err?.message || String(err)}`,
+    };
+  }
 }
