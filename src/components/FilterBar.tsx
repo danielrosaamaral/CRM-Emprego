@@ -17,6 +17,8 @@ interface FilterBarProps {
   totalFiltered: number;
   totalInDatabase: number;
   locationName: string;
+  geoMode: 'nacional' | 'internacional';
+  onGeoModeChange: (mode: 'nacional' | 'internacional') => void;
 }
 
 export const FilterBar: React.FC<FilterBarProps> = ({
@@ -34,88 +36,116 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   totalFiltered,
   totalInDatabase,
   locationName,
+  geoMode,
+  onGeoModeChange,
 }) => {
+  const isInternacional = geoMode === 'internacional';
   return (
-    <div className="bg-white border-b border-[#E5E5EA] py-4 px-4 sm:px-6 lg:px-8">
+    <div className="bg-neutral-900 border-b border-neutral-800 py-4 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Main Controls Row */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          {/* Master Distance Slider */}
+          {/* Geo Mode + Distance Slider */}
           <div className="flex-1 max-w-xl">
-            <div className="flex items-center justify-between mb-1.5">
-              <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-800 uppercase tracking-wide">
-                <Navigation className="w-3.5 h-3.5 text-neutral-500" />
-                <span>Raio Máximo de Distância (Filtro Mestre)</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-neutral-100 text-neutral-900 border border-neutral-200">
-                  {distanceKm} km
-                </span>
-                <span className="text-[11px] text-neutral-400">a partir de {locationName}</span>
-              </div>
+            {/* Geo Mode Toggle */}
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide">Âmbito:</span>
+              <button
+                type="button"
+                onClick={() => onGeoModeChange('nacional')}
+                className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors cursor-pointer ${
+                  !isInternacional
+                    ? 'bg-[#2563EB] text-white border-blue-500 font-medium shadow-xs shadow-blue-500/20'
+                    : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:bg-neutral-700 hover:text-neutral-200'
+                }`}
+              >
+                Nacional
+              </button>
+              <button
+                type="button"
+                onClick={() => onGeoModeChange('internacional')}
+                className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors cursor-pointer ${
+                  isInternacional
+                    ? 'bg-[#2563EB] text-white border-blue-500 font-medium shadow-xs shadow-blue-500/20'
+                    : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:bg-neutral-700 hover:text-neutral-200'
+                }`}
+              >
+                Internacional
+              </button>
             </div>
 
-            {/* Slider with preset tick marks */}
-            <div className="space-y-1">
-              <input
-                id="distance-slider"
-                type="range"
-                min="3"
-                max="50"
-                step="1"
-                value={distanceKm}
-                onChange={(e) => onDistanceChange(Number(e.target.value))}
-                className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-[#1D1D1F]"
-              />
-              <div className="flex justify-between text-[11px] font-mono text-neutral-500 px-0.5">
-                <button
-                  type="button"
-                  onClick={() => onDistanceChange(5)}
-                  className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 5 ? 'font-bold text-neutral-950 underline' : ''}`}
-                >
-                  [ 5 km ]
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDistanceChange(10)}
-                  className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 10 ? 'font-bold text-neutral-950 underline' : ''}`}
-                >
-                  [ 10 km ]
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDistanceChange(20)}
-                  className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 20 ? 'font-bold text-neutral-950 underline' : ''}`}
-                >
-                  [ 20 km ]
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDistanceChange(35)}
-                  className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 35 ? 'font-bold text-neutral-950 underline' : ''}`}
-                >
-                  [ 35 km ]
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onDistanceChange(50)}
-                  className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 50 ? 'font-bold text-neutral-950 underline' : ''}`}
-                >
-                  [ 50 km ]
-                </button>
-              </div>
-            </div>
+            {/* Distance slider — visible only in Nacional mode */}
+            {!isInternacional && (
+              <>
+                <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-300 uppercase tracking-wide">
+                    <Navigation className="w-3.5 h-3.5 text-blue-400" />
+                    <span>Raio Máximo de Distância (Filtro Mestre)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-neutral-800 text-blue-400 border border-neutral-700">
+                      {distanceKm === 0 ? '< 1 km' : `${distanceKm} km`}
+                    </span>
+                    <span className="text-[11px] text-neutral-400">a partir de {locationName}</span>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <input
+                    id="distance-slider"
+                    type="range"
+                    min="0"
+                    max="600"
+                    step="1"
+                    value={distanceKm}
+                    onChange={(e) => onDistanceChange(Number(e.target.value))}
+                    className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-[#2563EB]"
+                  />
+                  <div className="flex justify-between text-[11px] font-mono text-neutral-400 px-0.5">
+                    <button type="button" onClick={() => onDistanceChange(5)}
+                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 5 ? 'font-bold text-blue-400 underline' : ''}`}>
+                      [ 5 km ]
+                    </button>
+                    <button type="button" onClick={() => onDistanceChange(20)}
+                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 20 ? 'font-bold text-blue-400 underline' : ''}`}>
+                      [ 20 km ]
+                    </button>
+                    <button type="button" onClick={() => onDistanceChange(50)}
+                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 50 ? 'font-bold text-blue-400 underline' : ''}`}>
+                      [ 50 km ]
+                    </button>
+                    <button type="button" onClick={() => onDistanceChange(100)}
+                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 100 ? 'font-bold text-blue-400 underline' : ''}`}>
+                      [ 100 km ]
+                    </button>
+                    <button type="button" onClick={() => onDistanceChange(300)}
+                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 300 ? 'font-bold text-blue-400 underline' : ''}`}>
+                      [ 300 km ]
+                    </button>
+                    <button type="button" onClick={() => onDistanceChange(600)}
+                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 600 ? 'font-bold text-blue-400 underline' : ''}`}>
+                      [ Todo o País ]
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {isInternacional && (
+              <p className="text-xs text-neutral-400 italic mt-1">
+                Modo Internacional activo — filtragem por distância desactivada.
+              </p>
+            )}
           </div>
 
           {/* Drive Time Filter (Especially relevant for Spontaneous Prospects) */}
           {mode === 'espontaneas' && onMaxCarMinutesChange && (
-            <div className="lg:w-64 border-l lg:border-neutral-200 lg:pl-4">
+            <div className="lg:w-64 border-l lg:border-neutral-800 lg:pl-4">
               <div className="flex items-center justify-between mb-1.5">
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-800 uppercase tracking-wide">
-                  <Car className="w-3.5 h-3.5 text-neutral-500" />
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-300 uppercase tracking-wide">
+                  <Car className="w-3.5 h-3.5 text-blue-400" />
                   <span>Deslocação de Carro</span>
                 </div>
-                <span className="text-xs font-mono font-medium text-neutral-900">
+                <span className="text-xs font-mono font-medium text-neutral-200">
                   ≤ {maxCarMinutes} min
                 </span>
               </div>
@@ -127,11 +157,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                     onClick={() => onMaxCarMinutesChange(m)}
                     className={`flex-1 py-1 text-xs rounded border transition-colors cursor-pointer ${
                       maxCarMinutes === m
-                        ? 'bg-neutral-900 text-white border-neutral-900 font-medium'
-                        : 'bg-white text-neutral-600 border-neutral-200 hover:bg-neutral-50'
+                        ? 'bg-[#2563EB] text-white border-blue-500 font-medium'
+                        : 'bg-neutral-800 text-neutral-300 border-neutral-700 hover:bg-neutral-700'
                     }`}
                   >
-                    {m === 5 ? '≤ 5 min (Prioridade)' : `≤ ${m} min`}
+                    {m === 5 ? '≤ 5 min' : `≤ ${m} min`}
                   </button>
                 ))}
               </div>
@@ -144,7 +174,7 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               id="btn-actualizar"
               onClick={onRefresh}
               disabled={isRefreshing}
-              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#1D1D1F] hover:bg-black text-white text-xs font-medium tracking-wide uppercase rounded-md transition-all disabled:opacity-50 cursor-pointer shadow-xs"
+              className="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-medium tracking-wide uppercase rounded-md transition-all disabled:opacity-50 cursor-pointer shadow-sm shadow-blue-500/20"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
               <span>{isRefreshing ? 'A Pesquisar...' : 'Actualizar'}</span>
@@ -153,11 +183,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
         </div>
 
         {/* Secondary Filter Row: Search & Status Badges */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-neutral-100">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2 border-t border-neutral-800">
           {/* Status Tabs */}
           <div className="flex items-center space-x-1 overflow-x-auto pb-1 sm:pb-0">
             <span className="text-xs text-neutral-400 mr-2 flex items-center gap-1">
-              <SlidersHorizontal className="w-3 h-3" /> Estado:
+              <SlidersHorizontal className="w-3 h-3 text-neutral-400" /> Estado:
             </span>
             {(
               [
@@ -175,8 +205,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 onClick={() => onStatusFilterChange(item.id)}
                 className={`px-2.5 py-1 text-xs rounded-full transition-colors cursor-pointer ${
                   statusFilter === item.id
-                    ? 'bg-neutral-900 text-white font-medium'
-                    : 'bg-neutral-100 text-neutral-600 hover:bg-neutral-200'
+                    ? 'bg-[#2563EB] text-white font-medium shadow-xs shadow-blue-600/30'
+                    : 'bg-neutral-800 text-neutral-300 hover:bg-neutral-700 hover:text-white'
                 }`}
               >
                 {item.label}
@@ -194,11 +224,11 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                 value={searchQuery}
                 onChange={(e) => onSearchQueryChange(e.target.value)}
                 placeholder="Filtrar empresa, sector..."
-                className="w-full text-xs pl-8 pr-3 py-1.5 bg-neutral-50 border border-neutral-200 rounded-md focus:outline-none focus:border-neutral-400 text-neutral-800"
+                className="w-full text-xs pl-8 pr-3 py-1.5 bg-neutral-800 border border-neutral-700 rounded-md focus:outline-none focus:border-blue-500 text-neutral-100 placeholder-neutral-500"
               />
             </div>
-            <div className="text-xs font-mono text-neutral-500 whitespace-nowrap">
-              <span className="font-semibold text-neutral-800">{totalFiltered}</span>
+            <div className="text-xs font-mono text-neutral-400 whitespace-nowrap">
+              <span className="font-semibold text-neutral-200">{totalFiltered}</span>
               <span className="text-neutral-400">/{totalInDatabase} na BD</span>
             </div>
           </div>

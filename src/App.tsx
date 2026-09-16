@@ -20,6 +20,7 @@ import {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'ofertas' | 'espontaneas' | 'perfil' | 'definicoes'>('ofertas');
   const [distanceKm, setDistanceKm] = useState<number>(10);
+  const [geoMode, setGeoMode] = useState<'nacional' | 'internacional'>('nacional');
   const [maxCarMinutes, setMaxCarMinutes] = useState<number>(10);
   const [statusFilter, setStatusFilter] = useState<'todos' | OfferStatus>('todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -63,6 +64,9 @@ export default function App() {
       if (data.definicoes?.tempoCarroMaxMin) {
         setMaxCarMinutes(data.definicoes.tempoCarroMaxMin);
       }
+      if (data.definicoes?.modoGeografico) {
+        setGeoMode(data.definicoes.modoGeografico);
+      }
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);
       showNotice('Erro ao carregar dados do servidor local.', 'error');
@@ -90,7 +94,7 @@ export default function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            location: settings?.localizacaoBase || 'Porto / Maia, Portugal',
+            location: settings?.localizacaoBase || 'Rua Garcia de Orta, 6, 2780-113 Oeiras, Portugal',
             maxKm: distanceKm,
           }),
         });
@@ -109,7 +113,7 @@ export default function App() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            location: settings?.localizacaoBase || 'Porto / Maia, Portugal',
+            location: settings?.localizacaoBase || 'Rua Garcia de Orta, 6, 2780-113 Oeiras, Portugal',
             maxMinutes: maxCarMinutes,
           }),
         });
@@ -338,11 +342,17 @@ export default function App() {
     return { imported: data.imported, total: data.total };
   };
 
-  // Filtered Job Offers based on the master distance slider and status
+  // Filtered Job Offers based on geo mode, master distance slider and status
   const filteredOffers = useMemo(() => {
-    return offers.filter((o) => {
-      // Distance filter: master slider
-      if (o.distanciaKm > distanceKm) return false;
+    const list = offers.filter((o) => {
+      // Geo mode filter
+      if (geoMode === 'internacional') {
+        if (!o.isInternacional) return false;
+      } else {
+        // Nacional: skip international offers; apply distance filter
+        if (o.isInternacional) return false;
+        if (typeof o.distanciaKm === 'number' && distanceKm > 0 && o.distanciaKm > distanceKm) return false;
+      }
 
       // Status filter
       if (statusFilter !== 'todos' && o.estado !== statusFilter) return false;
@@ -359,16 +369,48 @@ export default function App() {
 
       return true;
     });
-  }, [offers, distanceKm, statusFilter, searchQuery]);
 
-  // Filtered Spontaneous Companies based on distance slider, drive time, and status
+    const ordenacao = settings?.ordenacaoPadrao || 'recentes';
+
+    return list.sort((a, b) => {
+      if (ordenacao === 'proximos') {
+        const distA = typeof a.distanciaKm === 'number' && !isNaN(a.distanciaKm) ? a.distanciaKm : Number.POSITIVE_INFINITY;
+        const distB = typeof b.distanciaKm === 'number' && !isNaN(b.distanciaKm) ? b.distanciaKm : Number.POSITIVE_INFINITY;
+        if (distA !== distB) {
+          return distA - distB;
+        }
+        // Desempate: mais recentes primeiro
+        const timeA = a.dataOferta || a.dataEncontrado ? new Date(a.dataOferta || a.dataEncontrado).getTime() || 0 : 0;
+        const timeB = b.dataOferta || b.dataEncontrado ? new Date(b.dataOferta || b.dataEncontrado).getTime() || 0 : 0;
+        return timeB - timeA;
+      } else {
+        // 'recentes' (por defeito)
+        const timeA = a.dataOferta || a.dataEncontrado ? new Date(a.dataOferta || a.dataEncontrado).getTime() || 0 : 0;
+        const timeB = b.dataOferta || b.dataEncontrado ? new Date(b.dataOferta || b.dataEncontrado).getTime() || 0 : 0;
+        if (timeA !== timeB) {
+          return timeB - timeA;
+        }
+        // Desempate: mais próximos primeiro
+        const distA = typeof a.distanciaKm === 'number' && !isNaN(a.distanciaKm) ? a.distanciaKm : Number.POSITIVE_INFINITY;
+        const distB = typeof b.distanciaKm === 'number' && !isNaN(b.distanciaKm) ? b.distanciaKm : Number.POSITIVE_INFINITY;
+        return distA - distB;
+      }
+    });
+  }, [offers, geoMode, distanceKm, statusFilter, searchQuery, settings?.ordenacaoPadrao]);
+
+  // Filtered Spontaneous Companies based on geo mode, distance slider, drive time, and status
   const filteredCompanies = useMemo(() => {
-    return companies.filter((c) => {
-      // Distance filter
-      if (c.distanciaKm > distanceKm) return false;
-
-      // Drive time filter
-      if (c.tempoDeslocacaoCarroMin > maxCarMinutes) return false;
+    const list = companies.filter((c) => {
+      // Geo mode filter
+      if (geoMode === 'internacional') {
+        if (!c.isInternacional) return false;
+      } else {
+        // Nacional: skip international companies; apply distance filter
+        if (c.isInternacional) return false;
+        if (typeof c.distanciaKm === 'number' && distanceKm > 0 && c.distanciaKm > distanceKm) return false;
+        // Drive time filter (only in nacional)
+        if (typeof c.tempoDeslocacaoCarroMin === 'number' && c.tempoDeslocacaoCarroMin > maxCarMinutes) return false;
+      }
 
       // Status filter
       if (statusFilter !== 'todos' && c.estado !== statusFilter) return false;
@@ -384,7 +426,30 @@ export default function App() {
 
       return true;
     });
-  }, [companies, distanceKm, maxCarMinutes, statusFilter, searchQuery]);
+
+    const ordenacao = settings?.ordenacaoPadrao || 'recentes';
+
+    return list.sort((a, b) => {
+      const timeA = a.dataEncontrado ? new Date(a.dataEncontrado).getTime() || 0 : 0;
+      const timeB = b.dataEncontrado ? new Date(b.dataEncontrado).getTime() || 0 : 0;
+      const distA = typeof a.distanciaKm === 'number' && !isNaN(a.distanciaKm) ? a.distanciaKm : Number.POSITIVE_INFINITY;
+      const distB = typeof b.distanciaKm === 'number' && !isNaN(b.distanciaKm) ? b.distanciaKm : Number.POSITIVE_INFINITY;
+
+      if (ordenacao === 'proximos') {
+        if (distA !== distB) {
+          return distA - distB;
+        }
+        return timeB - timeA;
+      } else {
+        // 'recentes' (por defeito)
+        if (timeA !== timeB) {
+          return timeB - timeA;
+        }
+        return distA - distB;
+      }
+    });
+  }, [companies, geoMode, distanceKm, maxCarMinutes, statusFilter, searchQuery, settings?.ordenacaoPadrao]);
+
 
   // Global counts for the header
   const counts = useMemo(() => {
@@ -404,7 +469,7 @@ export default function App() {
   }, [offers, companies]);
 
   return (
-    <div className="min-h-screen bg-[#FBFBFD] text-[#1D1D1F] flex flex-col font-sans selection:bg-neutral-200">
+    <div className="min-h-screen bg-neutral-950 text-neutral-100 flex flex-col font-sans selection:bg-blue-900 selection:text-white">
       {/* Editorial Header */}
       <Header
         activeTab={activeTab}
@@ -421,12 +486,12 @@ export default function App() {
       {notification && (
         <div className="fixed bottom-5 right-5 z-50 animate-fade-in">
           <div
-            className={`px-4 py-2.5 rounded-lg shadow-lg text-xs font-medium border ${
+            className={`px-4 py-2.5 rounded-lg shadow-xl text-xs font-medium border ${
               notification.type === 'success'
-                ? 'bg-emerald-950 text-white border-emerald-800'
+                ? 'bg-emerald-950 text-emerald-200 border-emerald-800'
                 : notification.type === 'error'
-                ? 'bg-rose-950 text-white border-rose-800'
-                : 'bg-neutral-900 text-white border-neutral-700'
+                ? 'bg-rose-950 text-rose-200 border-rose-800'
+                : 'bg-neutral-900 text-neutral-200 border-neutral-700'
             }`}
           >
             {notification.message}
@@ -450,7 +515,9 @@ export default function App() {
           isRefreshing={isRefreshing}
           totalFiltered={activeTab === 'ofertas' ? filteredOffers.length : filteredCompanies.length}
           totalInDatabase={activeTab === 'ofertas' ? offers.length : companies.length}
-          locationName={settings?.localizacaoBase || 'Porto / Maia'}
+          locationName={settings?.localizacaoBase || 'Rua Garcia de Orta, 6, Oeiras'}
+          geoMode={geoMode}
+          onGeoModeChange={setGeoMode}
         />
       )}
 
@@ -458,8 +525,8 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {isLoading ? (
           <div className="text-center py-20">
-            <div className="inline-block w-6 h-6 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p className="font-serif text-base text-neutral-600">A carregar base de candidaturas...</p>
+            <div className="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <p className="text-sm text-neutral-400">A carregar base de candidaturas...</p>
           </div>
         ) : (
           <>
@@ -524,19 +591,19 @@ export default function App() {
         />
       )}
 
-      {/* Subtle Editorial Footer */}
-      <footer className="border-t border-[#E5E5EA] bg-white py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-neutral-500">
+      {/* Footer */}
+      <footer className="border-t border-neutral-800 bg-neutral-900 py-4 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-neutral-400">
           <div className="flex items-center gap-2">
-            <span className="font-serif font-medium text-neutral-800">Atelier Daniel Rosa Amaral</span>
-            <span>·</span>
-            <span>25 Anos de Experiência em Design & Estratégia</span>
+            <span className="font-semibold text-neutral-200">Atelier Daniel Rosa Amaral</span>
+            <span className="text-neutral-600">·</span>
+            <span className="text-neutral-400">25 Anos de Experiência em Design & Estratégia</span>
           </div>
-          <div className="flex items-center gap-3 text-[11px] font-mono">
+          <div className="flex items-center gap-3 text-[11px] font-mono text-neutral-400">
             <span>Persistência JSON Ativa</span>
-            <span>·</span>
+            <span className="text-neutral-600">·</span>
             <span>Sem Envio Automático</span>
-            <span>·</span>
+            <span className="text-neutral-600">·</span>
             <span>Gmail Ready</span>
           </div>
         </div>

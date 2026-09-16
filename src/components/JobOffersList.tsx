@@ -32,8 +32,8 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
 }) => {
   if (offers.length === 0) {
     return (
-      <div className="text-center py-16 px-4 bg-white rounded-lg border border-neutral-200">
-        <p className="font-serif text-lg text-neutral-600 mb-2">
+      <div className="text-center py-16 px-4 bg-neutral-900 rounded-lg border border-neutral-800">
+        <p className="text-base text-neutral-300 font-medium mb-2">
           Nenhuma oferta de emprego encontrada para os filtros atuais.
         </p>
         <p className="text-xs text-neutral-500 max-w-md mx-auto">
@@ -44,38 +44,38 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-3.5">
       {offers.map((offer) => {
         const statusStyle = getStatusBadgeStyle(offer.estado);
 
         return (
           <article
             key={offer.id}
-            className="bg-white border border-[#E5E5EA] rounded-lg p-5 transition-all hover:border-neutral-300 shadow-xs"
+            className="bg-neutral-900/90 border border-neutral-800 rounded-lg p-5 transition-all hover:border-neutral-700 shadow-sm"
           >
             {/* Header: Company, Role & Status */}
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-100">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-800">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="font-serif text-lg font-semibold text-[#1D1D1F] tracking-tight">
+                  <h2 className="text-base font-semibold text-neutral-100 tracking-tight">
                     {offer.funcao}
-                  </h3>
+                  </h2>
                   <span
                     className={`text-[11px] font-mono px-2 py-0.5 rounded-full border ${statusStyle.bg} ${statusStyle.text} ${statusStyle.border}`}
                   >
                     {statusStyle.label}
                   </span>
                   {offer.dataEnviado && (
-                    <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <span className="text-[11px] font-mono text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
                       Enviado em {formatDatePt(offer.dataEnviado)}
                     </span>
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-600">
-                  <span className="font-medium text-neutral-900">{offer.empresa}</span>
-                  <span className="flex items-center gap-1 text-neutral-500">
-                    <MapPin className="w-3.5 h-3.5 text-neutral-400" />
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+                  <span className="font-semibold text-neutral-200">{offer.empresa}</span>
+                  <span className="flex items-center gap-1 text-neutral-300">
+                    <MapPin className="w-3.5 h-3.5 text-blue-400" />
                     {offer.localizacao} ({offer.distanciaKm} km
                     {offer.tempoCarroMin ? ` · ~${offer.tempoCarroMin} min de carro` : ''})
                   </span>
@@ -85,19 +85,19 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                       Oferta: {formatDatePt(offer.dataOferta)}
                     </span>
                   )}
-                  <span className="text-neutral-400">
+                  <span className="text-neutral-500">
                     Encontrada: {formatDatePt(offer.dataEncontrado)}
                   </span>
                 </div>
               </div>
 
               {/* Compatibility Score Pill */}
-              <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
-                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-neutral-900 text-white text-xs font-mono font-medium">
+              <div className="flex sm:flex-col items-center sm:items-end gap-1.5 shrink-0">
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-neutral-800 border border-neutral-700 text-neutral-100 text-xs font-mono font-medium">
                   <Sparkles className="w-3 h-3 text-amber-400" />
                   <span>{offer.grauCompatibilidade}% compatível</span>
                 </div>
-                <span className="text-[10px] text-neutral-400">25 anos de experiência</span>
+                <span className="text-[10px] text-neutral-500">25 anos de experiência</span>
               </div>
             </div>
 
@@ -110,46 +110,46 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                 </div>
                 <ul className="space-y-1">
                   {offer.razoesCompatibilidade.map((razao, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-neutral-700">
-                      <span className="text-neutral-400 select-none">•</span>
+                    <li key={idx} className="flex items-start gap-2 text-neutral-300">
+                      <span className="text-blue-500 select-none">•</span>
                       <span>{razao}</span>
                     </li>
                   ))}
                 </ul>
                 {offer.resumoRequisitos && (
-                  <p className="text-neutral-500 italic pt-1 border-t border-neutral-100 text-[11px]">
+                  <p className="text-neutral-400 italic pt-1 border-t border-neutral-800 text-[11px]">
                     Requisitos: {offer.resumoRequisitos}
                   </p>
                 )}
               </div>
 
               {/* Right Column: Contact & Verification */}
-              <div className="md:col-span-5 bg-neutral-50 rounded-md p-3 border border-neutral-200/80 space-y-2">
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-500">
+              <div className="md:col-span-5 bg-neutral-800/70 rounded-md p-3 border border-neutral-700/60 space-y-2">
+                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-400">
                   <span>Pessoa / Contacto Relevante</span>
                   {offer.contactoRelevante ? (
                     offer.contactoRelevante.verificado ? (
-                      <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                      <span className="flex items-center gap-1 text-emerald-400 font-medium">
                         <ShieldCheck className="w-3 h-3" /> Verificado
                       </span>
                     ) : (
-                      <span className="flex items-center gap-1 text-amber-700">
+                      <span className="flex items-center gap-1 text-amber-400">
                         <ShieldAlert className="w-3 h-3" /> Não Verificado
                       </span>
                     )
                   ) : (
-                    <span className="text-neutral-400">Não Identificado</span>
+                    <span className="text-neutral-500">Não Identificado</span>
                   )}
                 </div>
 
                 {offer.contactoRelevante ? (
                   <div className="space-y-1">
-                    <p className="font-semibold text-neutral-900">
+                    <p className="font-semibold text-neutral-100">
                       {offer.contactoRelevante.nome}
                     </p>
-                    <p className="text-neutral-600 text-[11px]">{offer.contactoRelevante.cargo}</p>
+                    <p className="text-neutral-400 text-[11px]">{offer.contactoRelevante.cargo}</p>
                     {offer.contactoRelevante.email && (
-                      <p className="text-neutral-700 font-mono text-[11px]">
+                      <p className="text-blue-300 font-mono text-[11px]">
                         {offer.contactoRelevante.email}
                       </p>
                     )}
@@ -158,21 +158,21 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         href={offer.contactoRelevante.linkedin}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-neutral-700 hover:text-neutral-900 underline text-[11px]"
+                        className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline text-[11px]"
                       >
                         Ver Perfil no LinkedIn
                       </a>
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-1.5 text-neutral-500">
+                  <div className="space-y-1.5 text-neutral-400">
                     <p className="text-[11px]">Contacto direto não identificado na oferta pública.</p>
                     <button
                       type="button"
                       onClick={() =>
                         onOpenGoogleSearch(`site:linkedin.com/in "${offer.empresa}" recursos humanos`)
                       }
-                      className="inline-flex items-center gap-1 text-[11px] font-mono text-neutral-700 hover:text-neutral-950 underline cursor-pointer"
+                      className="inline-flex items-center gap-1 text-[11px] font-mono text-blue-400 hover:text-blue-300 underline cursor-pointer"
                     >
                       <Search className="w-3 h-3" />
                       Procurar RH de {offer.empresa} no LinkedIn
@@ -182,16 +182,35 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
               </div>
             </div>
 
+            {/* Multi-URL Fontes List if multiple sources exist */}
+            {offer.fontesUrls && offer.fontesUrls.length > 0 && (
+              <div className="py-2 px-3 mb-2 rounded bg-neutral-800/40 border border-neutral-800 flex items-center gap-2 flex-wrap text-xs">
+                <span className="text-[11px] font-mono text-neutral-400 uppercase">Outras fontes:</span>
+                {offer.fontesUrls.map((fu, idx) => (
+                  <a
+                    key={idx}
+                    href={fu.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-neutral-800 hover:bg-neutral-700 text-blue-400 hover:text-blue-300 text-[11px] border border-neutral-700"
+                  >
+                    <span>{fu.portal}</span>
+                    <ExternalLink className="w-2.5 h-2.5" />
+                  </a>
+                ))}
+              </div>
+            )}
+
             {/* Footer Row: Source Links & Primary Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-800">
               {/* External Links */}
-              <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400">
                 {offer.urlOferta && (
                   <a
                     href={offer.urlOferta}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-neutral-800 hover:text-neutral-950 underline font-medium"
+                    className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline font-medium"
                   >
                     <span>Ver Oferta</span>
                     <ExternalLink className="w-3 h-3" />
@@ -202,7 +221,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                     href={offer.websiteEmpresa}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-neutral-600 hover:text-neutral-900"
+                    className="inline-flex items-center gap-1 text-neutral-400 hover:text-neutral-200"
                   >
                     <Globe className="w-3 h-3" />
                     <span>Website</span>
@@ -213,7 +232,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                     href={offer.linkedinEmpresa}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-neutral-600 hover:text-neutral-900"
+                    className="inline-flex items-center gap-1 text-neutral-400 hover:text-neutral-200"
                   >
                     <span>LinkedIn Empresa</span>
                   </a>
@@ -226,7 +245,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                 <select
                   value={offer.estado}
                   onChange={(e) => onUpdateStatus(offer.id, e.target.value as OfferStatus)}
-                  className="text-xs bg-white border border-neutral-200 rounded px-2 py-1 text-neutral-700 cursor-pointer focus:outline-none focus:border-neutral-400"
+                  className="text-xs bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-neutral-200 cursor-pointer focus:outline-none focus:border-blue-500"
                   aria-label="Alterar estado da oferta"
                 >
                   <option value="novo">Novo</option>
@@ -242,7 +261,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                     type="button"
                     onClick={() => onUpdateStatus(offer.id, 'enviado')}
                     title="Marcar como Enviado"
-                    className="px-2.5 py-1 text-xs border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded transition-colors cursor-pointer flex items-center gap-1"
+                    className="px-2.5 py-1 text-xs border border-emerald-700/60 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950/80 rounded transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <CheckCircle className="w-3 h-3" />
                     <span>Marcar Enviado</span>
@@ -253,7 +272,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenEmail(offer)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1D1D1F] hover:bg-black text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-sm shadow-blue-500/20"
                 >
                   <Mail className="w-3.5 h-3.5" />
                   <span>E-mail</span>

@@ -348,6 +348,99 @@ Porto, Portugal`;
       };
     }
   }
+
+  /**
+   * Refine an existing email draft (encurtar, tornar_direto, reescrever)
+   */
+  public async refineEmailDraft(
+    action: 'encurtar' | 'tornar_direto' | 'reescrever',
+    subject: string,
+    body: string,
+    type: 'oferta' | 'espontanea',
+    item?: JobOffer | SpontaneousCompany
+  ): Promise<{ assunto: string; corpo: string }> {
+    const definicoes = db.getData().definicoes;
+    const copyRuleKey = type === 'oferta' ? 'candidatura' : 'email';
+    const rule = definicoes.regrasCopy?.[copyRuleKey];
+
+    let actionInstruction = '';
+    if (action === 'encurtar') {
+      actionInstruction = `OBJETIVO DA OPERAÇÃO: ENCURTAR O E-MAIL.
+- Reduz a extensão do texto para um formato conciso e rápido de ler (cerca de 35% a 50% mais curto).
+- Remove redundâncias e frases introdutórias desnecessárias.
+- Preserva estritamente os factos essenciais: 25 anos de experiência, áreas-chave de especialidade (Design Gráfico, Branding, Packaging, Editorial), conexão à empresa e indicação de que o CV e Portfólio seguem em anexo.`;
+    } else if (action === 'tornar_direto') {
+      actionInstruction = `OBJETIVO DA OPERAÇÃO: TORNAR O E-MAIL MAIS DIRETO.
+- Elimina rodeios e fórmulas protocolares excessivas.
+- Entra diretamente na proposta de valor imediata e competências comprovadas.
+- Tom executivo assertivo, claro e factual, sem perder o profissionalismo e o respeito.
+- Preserva a menção factual ao CV e Portfólio em anexo.`;
+    } else {
+      // 'reescrever'
+      actionInstruction = `OBJETIVO DA OPERAÇÃO: REESCREVER / REFORMULAR O E-MAIL.
+- Reescreve o texto com uma redação renovada, fluida e elegante em português europeu.
+- Mantém integralmente todos os factos, proposta de valor e argumentos da versão original.
+- Melhora a articulação entre parágrafos e o ritmo da leitura, mantendo o fecho e a menção aos anexos.`;
+    }
+
+    const ruleContext = rule
+      ? `REGRAS DE COPY APLICÁVEIS:
+- Tom: ${rule.tom}
+- Formalidade: ${rule.formalidade}
+- Saudação recomendada: ${rule.saudacao}
+- Assinatura recomendada: ${rule.assinatura}
+- Instruções adicionais: ${rule.instrucoesAdicionais}`
+      : '';
+
+    const prompt = `${actionInstruction}
+
+${ruleContext}
+
+TEXTO ATUAL DO E-MAIL:
+Assunto atual: ${subject}
+Corpo atual:
+${body}
+
+${item ? `DADOS DE CONTEXTO DA CANDIDATURA:
+${JSON.stringify({
+  empresa: 'empresa' in item ? item.empresa : item.nome,
+  funcao: 'funcao' in item ? item.funcao : 'Colaboração Sénior',
+  localizacao: item.localizacao,
+  sector: item.sector,
+}, null, 2)}` : ''}
+
+Responde APENAS em JSON rigoroso com a seguinte estrutura:
+{
+  "assunto": "Assunto refinado para o e-mail",
+  "corpo": "Texto completo refinado com quebras de linha normais (\\n\\n)"
+}`;
+
+    try {
+      const res = await router.executeTask(
+        'geracao_email',
+        prompt,
+        'És um redator profissional de comunicação executiva para designers de topo. Responde exclusivamente em formato JSON sem texto adicional.',
+        true
+      );
+
+      const parsed = JSON.parse(res.text);
+      return {
+        assunto: parsed.assunto || subject,
+        corpo: parsed.corpo || body,
+      };
+    } catch (err) {
+      console.warn(`Falha na operação de refinar e-mail (${action}):`, err);
+      // Fallback sem quebrar
+      if (action === 'encurtar') {
+        const paragraphs = body.split('\n\n');
+        const shortened = paragraphs.length > 3
+          ? [paragraphs[0], paragraphs[1], paragraphs[paragraphs.length - 2], paragraphs[paragraphs.length - 1]].join('\n\n')
+          : body;
+        return { assunto: subject, corpo: shortened };
+      }
+      return { assunto: subject, corpo: body };
+    }
+  }
 }
 
 export const searchService = new SearchService();

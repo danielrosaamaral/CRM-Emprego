@@ -313,6 +313,26 @@ async function startServer() {
     }
   });
 
+  // Refine existing email draft (encurtar, tornar_direto, reescrever)
+  app.post('/api/email/refine', async (req, res) => {
+    try {
+      const { action, subject, body, type, item } = req.body;
+      if (!action || !body) {
+        return res.status(400).json({ error: 'Parâmetros "action" e "body" são obrigatórios' });
+      }
+      const refined = await searchService.refineEmailDraft(
+        action,
+        subject || '',
+        body,
+        type || 'oferta',
+        item
+      );
+      res.json(refined);
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao refinar e-mail' });
+    }
+  });
+
   // Upload and index CV/Portfolio
   app.post('/api/knowledge/upload', async (req, res) => {
     try {

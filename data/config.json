@@ -1,25 +1,24 @@
 {
-  "motores": {
-    "gemini": {
-      "apiKey": "",
-      "ativo": true,
-      "prioridade": 1,
-      "modeloPreferido": "gemini-3.8-flash"
-    },
-    "groq": {
-      "apiKey": "",
-      "ativo": true,
-      "prioridade": 2,
-      "modeloPreferido": "llama-3.3-70b-versatile"
-    },
-    "mistral": {
-      "apiKey": "",
-      "ativo": true,
-      "prioridade": 3,
-      "modeloPreferido": "mistral-small-latest"
-    }
-  },
-  "localizacaoBase": "Porto / Maia, Portugal",
-  "distanciaKmPadrao": 10,
-  "tempoCarroMaxMin": 10
+    "general":  {
+                    "localizacaoBase":  "oeiras",
+                    "distanciaKmPadrao":  10,
+                    "tempoCarroMaxMin":  10
+                },
+    "motores":  {
+                    "gemini":  {
+                                   "ativo":  true,
+                                   "prioridade":  1,
+                                   "modeloPreferido":  "gemini-3.8-flash"
+                               },
+                    "groq":  {
+                                 "ativo":  true,
+                                 "prioridade":  2,
+                                 "modeloPreferido":  "llama-3.3-70b-versatile"
+                             },
+                    "mistral":  {
+                                    "ativo":  true,
+                                    "prioridade":  3,
+                                    "modeloPreferido":  "mistral-small-latest"
+                                }
+                }
 }

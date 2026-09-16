@@ -19,51 +19,42 @@ export const Header: React.FC<HeaderProps> = ({
   activeTab,
   onTabChange,
   counts,
-  activeEngineName = 'Gemini 3.8 Flash',
 }) => {
   return (
-    <header className="border-b border-[#E5E5EA] bg-white sticky top-0 z-30">
+    <header className="border-b border-neutral-800 bg-neutral-900/90 backdrop-blur-sm sticky top-0 z-30">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between py-4 gap-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between py-3.5 gap-3">
           {/* Logo & Identity */}
-          <div className="flex items-center space-x-3">
-            <div className="w-9 h-9 rounded-md bg-[#1D1D1F] text-white flex items-center justify-center font-serif text-lg font-medium tracking-tight">
-              A
+          <div className="flex items-center space-x-3 shrink-0">
+            <div className="w-8 h-8 rounded-md bg-[#2563EB] text-white flex items-center justify-center font-sans text-sm font-bold tracking-tight shadow-sm shadow-blue-500/20">
+              CRM
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <span className="font-serif text-lg font-medium tracking-tight text-[#1D1D1F]">
-                  Gestão de Candidaturas
-                </span>
-                <span className="text-[10px] uppercase font-mono tracking-wider px-1.5 py-0.5 rounded bg-neutral-100 text-neutral-600 border border-neutral-200">
-                  Senior Designer · 25a
-                </span>
-              </div>
-              <p className="text-xs text-neutral-500 hidden sm:block">
-                Branding · Packaging · Editorial · Marketing & SEO
-              </p>
+              <h1 className="font-sans text-base font-semibold tracking-tight text-neutral-100">
+                Gestão de Candidaturas
+              </h1>
             </div>
           </div>
 
           {/* Navigation Tabs */}
-          <nav className="flex items-center space-x-1 sm:space-x-2 overflow-x-auto pb-1 md:pb-0" aria-label="Navegação Principal">
+          <nav className="flex items-center space-x-1 sm:space-x-1.5 overflow-x-auto" aria-label="Navegação Principal">
             <button
               id="tab-btn-ofertas"
               onClick={() => onTabChange('ofertas')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                 activeTab === 'ofertas'
-                  ? 'bg-[#1D1D1F] text-white shadow-xs'
-                  : 'text-neutral-600 hover:text-[#1D1D1F] hover:bg-neutral-100'
+                  ? 'bg-[#2563EB] text-white shadow-sm shadow-blue-600/30'
+                  : 'text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/60'
               }`}
             >
               <Briefcase className="w-3.5 h-3.5" />
               <span>Ofertas de Emprego</span>
               {counts.ofertasNovas > 0 && (
                 <span
-                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold ${
                     activeTab === 'ofertas'
-                      ? 'bg-amber-400 text-neutral-900 font-semibold'
-                      : 'bg-amber-100 text-amber-900'
+                      ? 'bg-amber-300 text-neutral-950'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                   }`}
                 >
                   {counts.ofertasNovas}
@@ -74,20 +65,20 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="tab-btn-espontaneas"
               onClick={() => onTabChange('espontaneas')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                 activeTab === 'espontaneas'
-                  ? 'bg-[#1D1D1F] text-white shadow-xs'
-                  : 'text-neutral-600 hover:text-[#1D1D1F] hover:bg-neutral-100'
+                  ? 'bg-[#2563EB] text-white shadow-sm shadow-blue-600/30'
+                  : 'text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/60'
               }`}
             >
               <Building2 className="w-3.5 h-3.5" />
               <span>Candidaturas Espontâneas</span>
               {counts.espontaneasNovas > 0 && (
                 <span
-                  className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded-full font-bold ${
                     activeTab === 'espontaneas'
-                      ? 'bg-amber-400 text-neutral-900 font-semibold'
-                      : 'bg-amber-100 text-amber-900'
+                      ? 'bg-amber-300 text-neutral-950'
+                      : 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
                   }`}
                 >
                   {counts.espontaneasNovas}
@@ -98,10 +89,10 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="tab-btn-perfil"
               onClick={() => onTabChange('perfil')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                 activeTab === 'perfil'
-                  ? 'bg-[#1D1D1F] text-white shadow-xs'
-                  : 'text-neutral-600 hover:text-[#1D1D1F] hover:bg-neutral-100'
+                  ? 'bg-[#2563EB] text-white shadow-sm shadow-blue-600/30'
+                  : 'text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/60'
               }`}
             >
               <BookOpen className="w-3.5 h-3.5" />
@@ -111,30 +102,24 @@ export const Header: React.FC<HeaderProps> = ({
             <button
               id="tab-btn-definicoes"
               onClick={() => onTabChange('definicoes')}
-              className={`flex items-center gap-2 px-3.5 py-2 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
+              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap cursor-pointer ${
                 activeTab === 'definicoes'
-                  ? 'bg-[#1D1D1F] text-white shadow-xs'
-                  : 'text-neutral-600 hover:text-[#1D1D1F] hover:bg-neutral-100'
+                  ? 'bg-[#2563EB] text-white shadow-sm shadow-blue-600/30'
+                  : 'text-neutral-400 hover:text-neutral-100 hover:bg-neutral-800/60'
               }`}
             >
               <Settings2 className="w-3.5 h-3.5" />
-              <span>Definições & APIs</span>
+              <span>Definições</span>
             </button>
           </nav>
 
-          {/* Quick Engine Indicator & Sent counter */}
-          <div className="hidden lg:flex items-center space-x-3 text-xs text-neutral-500">
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded bg-neutral-50 border border-neutral-200">
-              <Sparkles className="w-3 h-3 text-neutral-700" />
-              <span className="text-[11px] font-mono text-neutral-700">{activeEngineName}</span>
+          {/* Sent counter */}
+          {counts.enviadosTotal > 0 && (
+            <div className="hidden lg:flex items-center gap-1.5 text-emerald-400 text-xs font-medium px-2 py-1 rounded bg-emerald-950/50 border border-emerald-800/50">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>{counts.enviadosTotal} enviados</span>
             </div>
-            {counts.enviadosTotal > 0 && (
-              <div className="flex items-center gap-1 text-emerald-700 text-[11px] font-medium">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>{counts.enviadosTotal} enviados</span>
-              </div>
-            )}
-          </div>
+          )}
         </div>
       </div>
     </header>

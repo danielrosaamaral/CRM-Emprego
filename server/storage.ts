@@ -1,6 +1,14 @@
 import fs from 'fs';
 import path from 'path';
-import { AppSettings, JobOffer, KnowledgeDocument, SpontaneousCompany } from '../src/types.js';
+import {
+  AppSettings,
+  CopyCommunicationType,
+  CopyRuleDetail,
+  FonteUrl,
+  JobOffer,
+  KnowledgeDocument,
+  SpontaneousCompany,
+} from '../src/types.js';
 
 export interface DatabaseSchema {
   ofertas: JobOffer[];
@@ -23,7 +31,7 @@ const DATA_DIR = path.join(process.cwd(), 'data');
 const DB_FILE = path.join(DATA_DIR, 'db.json');
 
 const INITIAL_SETTINGS: AppSettings = {
-  localizacaoBase: 'Porto / Maia, Portugal',
+  localizacaoBase: 'Rua Garcia de Orta, 6, 2780-113 Oeiras, Portugal',
   distanciaKmPadrao: 10,
   tempoCarroMaxMin: 10,
   motores: {
@@ -88,6 +96,54 @@ const INITIAL_SETTINGS: AppSettings = {
       motorPrimario: 'gemini',
       motorSecundario: 'mistral',
       motorFallback: 'groq',
+    },
+  },
+  modoGeografico: 'nacional',
+  ordenacaoPadrao: 'recentes',
+  regrasCopy: {
+    candidatura: {
+      tipo: 'candidatura',
+      nome: 'Candidatura Direta a Oferta',
+      tom: 'Executivo Factual e Direto',
+      formalidade: 'formal',
+      comprimento: 'medio',
+      estrutura: 'Apresentação breve, alinhamento com a vaga, evidências do CV e proposta de valor.',
+      saudacao: 'Exmo(a). Senhor(a),',
+      assinatura: 'Com os melhores cumprimentos,',
+      instrucoesAdicionais: 'Foco exclusivo em competências e experiência comprovada com 25 anos de carreira.',
+    },
+    linkedin: {
+      tipo: 'linkedin',
+      nome: 'Mensagem / InMail LinkedIn',
+      tom: 'Profissional e Conciso',
+      formalidade: 'neutro',
+      comprimento: 'curto',
+      estrutura: 'Gancho inicial contextualizado, valor prático e convite para conversa.',
+      saudacao: 'Olá,',
+      assinatura: 'Cumprimentos,',
+      instrucoesAdicionais: 'Manter a mensagem abaixo de 100 palavras.',
+    },
+    email: {
+      tipo: 'email',
+      nome: 'Candidatura Espontânea por E-mail',
+      tom: 'Executivo e Consultivo',
+      formalidade: 'formal',
+      comprimento: 'medio',
+      estrutura: 'Motivo do contacto, conhecimento prévio sobre a empresa, como posso resolver problemas criativos/branding, portfolio e contactos.',
+      saudacao: 'Exmo(a). Senhor(a),',
+      assinatura: 'Atenciosamente,',
+      instrucoesAdicionais: 'Não usar adjetivos vazios; usar factos do portefólio e áreas de especialidade.',
+    },
+    followup: {
+      tipo: 'followup',
+      nome: 'Mensagem de Follow-up',
+      tom: 'Cortês e Objetivo',
+      formalidade: 'neutro',
+      comprimento: 'curto',
+      estrutura: 'Referência ao envio inicial, reafirmação breve de disponibilidade e questão direta sobre o processo.',
+      saudacao: 'Caro(a),',
+      assinatura: 'Com os melhores cumprimentos,',
+      instrucoesAdicionais: 'Esperar pelo menos 5 dias úteis antes de enviar.',
     },
   },
 };
@@ -524,6 +580,200 @@ const INITIAL_COMPANIES: SpontaneousCompany[] = [
   },
 ];
 
+function normalizeUrl(url: string | undefined | null): string {
+  if (!url) return '';
+  try {
+    const trimmed = url.trim();
+    if (!trimmed) return '';
+    const parsed = new URL(trimmed.startsWith('http') ? trimmed : `https://${trimmed}`);
+    const host = parsed.hostname.toLowerCase().replace(/^www\./, '');
+    const pathname = parsed.pathname.replace(/\/+$/, '') || '/';
+    return `${parsed.protocol}//${host}${pathname}${parsed.search}`;
+  } catch {
+    return url.trim().toLowerCase().replace(/\/+$/, '');
+  }
+}
+
+function detectPortal(url: string | undefined | null): string {
+  if (!url) return 'Outro Portal';
+  const lower = url.toLowerCase();
+  if (lower.includes('linkedin.com')) return 'LinkedIn';
+  if (lower.includes('indeed.com') || lower.includes('indeed.pt')) return 'Indeed';
+  if (lower.includes('net-empregos.com')) return 'Net-Empregos';
+  if (lower.includes('cargadetrabalhos.net')) return 'Carga de Trabalhos';
+  if (lower.includes('expressoemprego.pt')) return 'Expresso Emprego';
+  if (lower.includes('itjobs.pt')) return 'IT Jobs';
+  if (lower.includes('landing.jobs')) return 'Landing.jobs';
+  if (lower.includes('glassdoor.')) return 'Glassdoor';
+  if (lower.includes('sapo.pt')) return 'Sapo Emprego';
+  if (lower.includes('jooble.org') || lower.includes('jooble.pt')) return 'Jooble';
+  if (lower.includes('infojobs.pt') || lower.includes('infojobs.net')) return 'InfoJobs';
+  try {
+    const parsed = new URL(url.startsWith('http') ? url : `https://${url}`);
+    return parsed.hostname.replace(/^www\./, '');
+  } catch {
+    return 'Outro Portal';
+  }
+}
+
+function normalizeText(str: string | undefined | null): string {
+  if (!str) return '';
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function mergeFontesUrls(
+  primaryUrl: string,
+  existingList?: FonteUrl[],
+  incomingUrl?: string,
+  incomingList?: FonteUrl[]
+): FonteUrl[] {
+  const normPrimary = normalizeUrl(primaryUrl);
+  const seenUrls = new Set<string>();
+  if (normPrimary) {
+    seenUrls.add(normPrimary);
+  }
+
+  const result: FonteUrl[] = [];
+
+  const addFonte = (item?: { portal?: string; url?: string }) => {
+    if (!item || !item.url) return;
+    const trimmedUrl = item.url.trim();
+    const norm = normalizeUrl(trimmedUrl);
+    if (!norm || seenUrls.has(norm)) return;
+    seenUrls.add(norm);
+    result.push({
+      portal: item.portal && item.portal !== 'Outro Portal' ? item.portal : detectPortal(trimmedUrl),
+      url: trimmedUrl,
+    });
+  };
+
+  if (existingList && Array.isArray(existingList)) {
+    for (const f of existingList) {
+      addFonte(f);
+    }
+  }
+
+  if (incomingUrl) {
+    addFonte({ portal: detectPortal(incomingUrl), url: incomingUrl });
+  }
+
+  if (incomingList && Array.isArray(incomingList)) {
+    for (const f of incomingList) {
+      addFonte(f);
+    }
+  }
+
+  return result;
+}
+
+function areOffersMatching(a: JobOffer, b: JobOffer): boolean {
+  // 1. Direct URL match
+  const normUrlA = normalizeUrl(a.urlOferta);
+  const normUrlB = normalizeUrl(b.urlOferta);
+  if (normUrlA && normUrlB && normUrlA === normUrlB) {
+    return true;
+  }
+
+  // Check any URL intersection between a and b
+  const urlsA = new Set<string>();
+  if (normUrlA) urlsA.add(normUrlA);
+  if (a.fontesUrls) {
+    for (const f of a.fontesUrls) {
+      const nu = normalizeUrl(f.url);
+      if (nu) urlsA.add(nu);
+    }
+  }
+
+  if (normUrlB && urlsA.has(normUrlB)) return true;
+  if (b.fontesUrls) {
+    for (const f of b.fontesUrls) {
+      const nu = normalizeUrl(f.url);
+      if (nu && urlsA.has(nu)) return true;
+    }
+  }
+
+  // 2. Conservative Company + Role match
+  const compA = normalizeText(a.empresa);
+  const compB = normalizeText(b.empresa);
+  const roleA = normalizeText(a.funcao);
+  const roleB = normalizeText(b.funcao);
+
+  if (compA && compB && roleA && roleB && compA === compB && roleA === roleB) {
+    if (!!a.isInternacional === !!b.isInternacional) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
+function mergeJobOffers(existing: JobOffer, incoming: JobOffer): JobOffer {
+  const primaryUrl = existing.urlOferta || incoming.urlOferta || '';
+  const incomingAltUrl = existing.urlOferta ? incoming.urlOferta : undefined;
+  const mergedFontes = mergeFontesUrls(
+    primaryUrl,
+    existing.fontesUrls,
+    incomingAltUrl,
+    incoming.fontesUrls
+  );
+
+  const searchSet = new Set<string>(existing.pesquisasGoogleSugeridas || []);
+  if (incoming.pesquisasGoogleSugeridas) {
+    for (const q of incoming.pesquisasGoogleSugeridas) {
+      if (q && q.trim()) searchSet.add(q.trim());
+    }
+  }
+
+  const reasonsSet = new Set<string>(existing.razoesCompatibilidade || []);
+  if (incoming.razoesCompatibilidade) {
+    for (const r of incoming.razoesCompatibilidade) {
+      if (r && r.trim()) reasonsSet.add(r.trim());
+    }
+  }
+
+  return {
+    ...incoming,
+    ...existing, // User edits and existing status take priority
+    urlOferta: primaryUrl,
+    fontesUrls: mergedFontes.length > 0 ? mergedFontes : undefined,
+    websiteEmpresa: existing.websiteEmpresa || incoming.websiteEmpresa,
+    linkedinEmpresa: existing.linkedinEmpresa || incoming.linkedinEmpresa,
+    contactoRelevante: existing.contactoRelevante?.nome
+      ? {
+          ...incoming.contactoRelevante,
+          ...existing.contactoRelevante,
+          email: existing.contactoRelevante.email || incoming.contactoRelevante?.email,
+          linkedin: existing.contactoRelevante.linkedin || incoming.contactoRelevante?.linkedin,
+        }
+      : incoming.contactoRelevante || existing.contactoRelevante,
+    distanciaKm:
+      typeof existing.distanciaKm === 'number' && !isNaN(existing.distanciaKm) && existing.distanciaKm > 0
+        ? existing.distanciaKm
+        : incoming.distanciaKm,
+    tempoCarroMin:
+      typeof existing.tempoCarroMin === 'number' && !isNaN(existing.tempoCarroMin) && existing.tempoCarroMin > 0
+        ? existing.tempoCarroMin
+        : incoming.tempoCarroMin,
+    grauCompatibilidade:
+      existing.grauCompatibilidade > 0 ? existing.grauCompatibilidade : (incoming.grauCompatibilidade || 0),
+    razoesCompatibilidade: Array.from(reasonsSet),
+    pesquisasGoogleSugeridas: searchSet.size > 0 ? Array.from(searchSet) : undefined,
+    resumoRequisitos: existing.resumoRequisitos || incoming.resumoRequisitos,
+    sector: existing.sector || incoming.sector,
+    estado: existing.estado,
+    dataEncontrado: existing.dataEncontrado || incoming.dataEncontrado,
+    dataEnviado: existing.dataEnviado,
+    emailPreparado: existing.emailPreparado || incoming.emailPreparado,
+    emailGerado: existing.emailGerado || incoming.emailGerado,
+  };
+}
+
 class DatabaseManager {
   private data: DatabaseSchema;
 
@@ -584,25 +834,22 @@ class DatabaseManager {
   }
 
   public updateOffers(newOffers: JobOffer[]) {
-    // Deduplicate by URL or title+company
-    const existingMap = new Map<string, JobOffer>();
-    for (const off of this.data.ofertas) {
-      const key = (off.urlOferta || `${off.empresa}_${off.funcao}`).toLowerCase().trim();
-      existingMap.set(key, off);
-    }
-
     let addedCount = 0;
-    for (const off of newOffers) {
-      const key = (off.urlOferta || `${off.empresa}_${off.funcao}`).toLowerCase().trim();
-      if (!existingMap.has(key)) {
-        existingMap.set(key, off);
+    let mergedCount = 0;
+
+    for (const incoming of newOffers) {
+      const existingIdx = this.data.ofertas.findIndex((exist) => areOffersMatching(exist, incoming));
+      if (existingIdx >= 0) {
+        this.data.ofertas[existingIdx] = mergeJobOffers(this.data.ofertas[existingIdx], incoming);
+        mergedCount++;
+      } else {
+        this.data.ofertas.push(incoming);
         addedCount++;
       }
     }
 
-    this.data.ofertas = Array.from(existingMap.values());
     this.saveDatabase();
-    return { total: this.data.ofertas.length, added: addedCount };
+    return { total: this.data.ofertas.length, added: addedCount, merged: mergedCount };
   }
 
   public updateOfferStatus(id: string, estado: JobOffer['estado'], dataEnviado?: string) {
@@ -697,6 +944,10 @@ class DatabaseManager {
       roteamento: {
         ...this.data.definicoes.roteamento,
         ...(settings.roteamento || {}),
+      },
+      regrasCopy: {
+        ...this.data.definicoes.regrasCopy,
+        ...(settings.regrasCopy || {}),
       },
     };
     this.saveDatabase();

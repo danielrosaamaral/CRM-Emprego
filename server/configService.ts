@@ -65,7 +65,7 @@ class ConfigService {
         };
       }
     } catch (err) {
-      console.warn('Aviso: Não foi possível ler data/config.json, a inicializar configuração nova:', err);
+      console.warn('Aviso: Não foi possÃ­vel ler data/config.json, a inicializar configuração nova:', err);
     }
     return {
       apiKeys: { gemini: '', groq: '', mistral: '' },
@@ -77,40 +77,46 @@ class ConfigService {
   private saveConfig() {
     try {
       this.ensureDataDir();
+      const safeConfig = JSON.parse(JSON.stringify(this.config));
+      delete safeConfig.apiKeys;
+      if (safeConfig.motores) {
+        for (const engine of Object.keys(safeConfig.motores)) {
+          delete safeConfig.motores[engine]?.apiKey;
+        }
+      }
       const tmpFile = `${CONFIG_FILE}.tmp`;
-      fs.writeFileSync(tmpFile, JSON.stringify(this.config, null, 2), 'utf-8');
+      fs.writeFileSync(tmpFile, JSON.stringify(safeConfig, null, 2), 'utf-8');
       fs.renameSync(tmpFile, CONFIG_FILE);
     } catch (err) {
       console.error('Erro ao guardar data/config.json:', err);
     }
   }
-
   public getApiKey(engine: EngineType): string {
-    const storedKey = this.config.apiKeys[engine]?.trim() || this.config.motores?.[engine]?.apiKey?.trim();
-    if (storedKey) {
-      return storedKey;
-    }
-
     if (engine === 'gemini') return process.env.GEMINI_API_KEY?.trim() || '';
     if (engine === 'groq') return process.env.GROQ_API_KEY?.trim() || '';
     if (engine === 'mistral') return process.env.MISTRAL_API_KEY?.trim() || '';
-
     return '';
   }
-
   public getEffectiveApiKey(engine: EngineType): string {
     return this.getApiKey(engine);
   }
 
   public setApiKey(engine: EngineType, apiKey: string) {
     const trimmed = apiKey.trim();
-    this.config.apiKeys[engine] = trimmed;
-    if (!this.config.motores) this.config.motores = {};
-    if (!this.config.motores[engine]) this.config.motores[engine] = {};
-    this.config.motores[engine]!.apiKey = trimmed;
-    this.saveConfig();
+    const envName = engine === 'gemini' ? 'GEMINI_API_KEY' : engine === 'groq' ? 'GROQ_API_KEY' : 'MISTRAL_API_KEY';
+    const envPath = path.join(process.cwd(), '.env');
+    let envContent = fs.existsSync(envPath) ? fs.readFileSync(envPath, 'utf-8') : '';
+    const regex = new RegExp(`^${envName}=.*$`, 'm');
+    const line = `${envName}=${trimmed}`;
+    if (regex.test(envContent)) {
+      envContent = envContent.replace(regex, line);
+    } else {
+      envContent = `${envContent.replace(/\s*$/, '')}\n${line}\n`;
+    }
+    fs.writeFileSync(envPath, envContent, 'utf-8');
+    process.env[envName] = trimmed;
+    connectionStatusCache.delete(engine);
   }
-
   public updateEngineKey(engine: EngineType, apiKey: string) {
     this.setApiKey(engine, apiKey);
     return this.getEngineStatus(engine);
@@ -130,26 +136,21 @@ class ConfigService {
     maskedKey: string;
     temChaveAmbiente: boolean;
   } {
-    const storedKey = this.config.apiKeys[engine]?.trim() || this.config.motores?.[engine]?.apiKey?.trim();
     const envKey =
       engine === 'gemini'
         ? process.env.GEMINI_API_KEY?.trim()
         : engine === 'groq'
         ? process.env.GROQ_API_KEY?.trim()
         : process.env.MISTRAL_API_KEY?.trim();
-
-    const activeKey = storedKey || envKey || '';
-    const isEnv = !storedKey && !!envKey;
-
+    const activeKey = envKey || '';
     return {
       configured: !!activeKey,
       hasKey: !!activeKey,
-      isEnvKey: isEnv,
+      isEnvKey: !!activeKey,
       maskedKey: this.getMaskedKey(activeKey),
-      temChaveAmbiente: !!envKey,
+      temChaveAmbiente: !!activeKey,
     };
   }
-
   public getPublicEngineConfigs(): Record<EngineType, Partial<EngineConfig>> {
     const engines: EngineType[] = ['gemini', 'groq', 'mistral'];
     const res: Partial<Record<EngineType, Partial<EngineConfig>>> = {};
@@ -351,7 +352,7 @@ class ConfigService {
         msg.includes('network');
       const res = {
         status: 'erro_ligacao' as ConnectionStatus,
-        message: isNetwork ? 'Erro de rede ao contactar a API' : `Erro de ligação: ${msg}`,
+        message: isNetwork ? 'Erro de rede ao contactar a API' : `Erro de ligaÃ§Ã£o: ${msg}`,
         details: msg,
       };
       connectionStatusCache.set(engine, res);

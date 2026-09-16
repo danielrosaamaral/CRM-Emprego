@@ -1,5 +1,10 @@
 export type OfferStatus = 'novo' | 'visto' | 'preparada' | 'enviado' | 'ignorado';
 
+export interface FonteUrl {
+  portal: string;
+  url: string;
+}
+
 export interface JobOffer {
   id: string;
   empresa: string;
@@ -9,6 +14,8 @@ export interface JobOffer {
   tempoCarroMin?: number;
   dataOferta: string;
   urlOferta: string;
+  fontesUrls?: FonteUrl[];
+  isInternacional?: boolean;
   websiteEmpresa: string;
   linkedinEmpresa?: string;
   contactoRelevante?: {
@@ -24,7 +31,9 @@ export interface JobOffer {
   dataEncontrado: string;
   dataEnviado?: string;
   resumoRequisitos?: string;
+  notas?: string;
   sector?: string;
+  pesquisasGoogleSugeridas?: string[];
   emailPreparado?: {
     assunto: string;
     corpo: string;
@@ -47,6 +56,8 @@ export interface SpontaneousCompany {
   notasEstacionamento: string;
   website: string;
   linkedin: string;
+  fontesUrls?: FonteUrl[];
+  isInternacional?: boolean;
   dimensaoEconomica: string; // e.g. "Faturação > €15M, ~120 colaboradores"
   sector: 'indústria' | 'alimentar' | 'distribuição' | 'tecnologia' | 'farmacêutico' | 'serviços' | 'produção' | 'sustentável' | 'outro';
   pessoasRelevantes: Array<{
@@ -82,6 +93,7 @@ export interface KnowledgeDocument {
   dataUpload: string;
   resumoExtraido: string;
   conteudoTexto?: string;
+  indexado?: boolean;
   entidadesExtraidas: {
     competencias: string[];
     anosExperiencia: number;
@@ -132,12 +144,29 @@ export interface TaskEngineRouting {
   motorFallback: EngineType;
 }
 
+export type CopyCommunicationType = 'candidatura' | 'linkedin' | 'email' | 'followup';
+
+export interface CopyRuleDetail {
+  tipo: CopyCommunicationType;
+  nome: string;
+  tom: string; // e.g. "Executivo Factual e Direto"
+  formalidade: 'formal' | 'neutro' | 'direto';
+  comprimento: 'curto' | 'medio' | 'detalhado';
+  estrutura: string;
+  saudacao: string;
+  assinatura: string;
+  instrucoesAdicionais: string;
+}
+
 export interface AppSettings {
-  localizacaoBase: string; // e.g. "Maia, Porto, Portugal"
-  distanciaKmPadrao: number; // 5, 10, 20
+  localizacaoBase: string; // e.g. "Rua Garcia de Orta, 6, 2780-113 Oeiras, Portugal"
+  distanciaKmPadrao: number; // 0, 5, 10, 20, 50, 100, 300, 600
   tempoCarroMaxMin: number; // default 10
+  modoGeografico: 'nacional' | 'internacional';
+  ordenacaoPadrao: 'recentes' | 'proximos';
   motores: Record<EngineType, EngineConfig>;
   roteamento: Record<EngineTask, TaskEngineRouting>;
+  regrasCopy: Record<CopyCommunicationType, CopyRuleDetail>;
 }
 
 export interface AppStatePayload {
