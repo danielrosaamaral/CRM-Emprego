@@ -66,9 +66,6 @@ export default function App() {
       if (data.definicoes?.tempoCarroMaxMin) {
         setMaxCarMinutes(data.definicoes.tempoCarroMaxMin);
       }
-      if (data.definicoes?.modoGeografico) {
-        setGeoMode(data.definicoes.modoGeografico);
-      }
     } catch (err: any) {
       console.error('Erro ao carregar dados:', err);
       showNotice('Erro ao carregar dados do servidor local.', 'error');
@@ -498,7 +495,7 @@ export default function App() {
 
    // Filtered Job Offers based on geographic scope, master distance slider and status
   const filteredOffers = useMemo(() => {
-    return offers.filter((o) => {
+    const list = offers.filter((o) => {
       // Geographic scope filter: Nacional vs Internacional
       const isOfferIntl =
         o.ambito === 'internacional' ||
@@ -597,7 +594,7 @@ export default function App() {
 
   // Filtered Spontaneous Companies based on geographic scope, distance slider, drive time, and status
   const filteredCompanies = useMemo(() => {
-    return companies.filter((c) => {
+    const list = companies.filter((c) => {
       const isCompanyIntl =
         c.ambito === 'internacional' ||
         (c.pais && c.pais.toLowerCase() !== 'portugal');
@@ -621,21 +618,8 @@ export default function App() {
         return false;
       }
 
-      return true;
-    });
-  }, [
-    companies,
-    geographicScope,
-    distanceKm,
-    maxCarMinutes,
-    statusFilter,
-    searchQuery,
-  ]);
-
-      // Status filter
       if (statusFilter !== 'todos' && c.estado !== statusFilter) return false;
 
-      // Text query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchesName = (c.nome || '').toLowerCase().includes(q);
@@ -750,8 +734,6 @@ export default function App() {
           totalFiltered={activeTab === 'ofertas' ? filteredOffers.length : filteredCompanies.length}
           totalInDatabase={activeTab === 'ofertas' ? offers.length : companies.length}
           locationName={settings?.localizacaoBase || 'Rua Garcia de Orta, 6, Oeiras'}
-          geoMode={geoMode}
-          onGeoModeChange={setGeoMode}
         />
       )}
 
