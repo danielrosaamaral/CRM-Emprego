@@ -929,7 +929,7 @@ class DatabaseManager {
           definicoes: parsed.definicoes && typeof parsed.definicoes === 'object' && !Array.isArray(parsed.definicoes)
             ? { ...INITIAL_SETTINGS, ...parsed.definicoes }
             : INITIAL_SETTINGS,
-          historicoEmails: parsed.historicoEmails || {},
+          historicoEmails: Array.isArray(parsed.historicoEmails) ? parsed.historicoEmails : [],
         };
       }
     } catch (err) {
