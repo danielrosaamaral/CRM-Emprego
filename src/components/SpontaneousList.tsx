@@ -149,11 +149,11 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
 
   if (companies.length === 0) {
     return (
-      <div className="text-center py-16 px-4 bg-white rounded-lg border border-neutral-200">
-        <p className="text-base font-semibold text-neutral-700 mb-2">
+      <div className="text-center py-16 px-4 bg-neutral-900 rounded-lg border border-neutral-800">
+        <p className="text-base font-semibold text-neutral-200 mb-2">
           Nenhuma empresa encontrada com os critérios de deslocação actuais.
         </p>
-        <p className="text-xs text-neutral-500 max-w-md mx-auto">
+        <p className="text-xs text-neutral-400 max-w-md mx-auto">
           Ajusta o tempo máximo de condução ou o raio no slider de distância, ou clica em "Actualizar" para descobrir novas empresas industriais e comerciais.
         </p>
       </div>
@@ -170,19 +170,19 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
         return (
           <article
             key={company.id}
-            className={`bg-white border ${
-              isEditing ? 'border-neutral-900 ring-1 ring-neutral-900/10' : 'border-[#E5E5EA]'
-            } rounded-lg p-5 transition-all hover:border-neutral-300 shadow-xs`}
+            className={`bg-neutral-900 border ${
+              isEditing ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-neutral-800'
+            } rounded-lg p-5 transition-all hover:border-neutral-700 shadow-xs`}
           >
             {isEditing ? (
               /* Inline Edit Form for Spontaneous Company */
               <div className="space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-base text-[#1D1D1F]">
+                    <span className="font-semibold text-base text-neutral-100">
                       Editar Candidatura Espontânea
                     </span>
-                    <span className="text-[10px] font-mono text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded border border-neutral-200">
+                    <span className="text-[10px] font-mono text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-700">
                       ID: {company.id}
                     </span>
                   </div>
@@ -191,7 +191,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                       type="button"
                       onClick={handleCancelEdit}
                       disabled={isSaving}
-                      className="px-3 py-1.5 text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="px-3 py-1.5 text-xs font-medium text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <X className="w-3.5 h-3.5" />
                       <span>Cancelar</span>
@@ -200,7 +200,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                       type="button"
                       onClick={() => handleSaveEdit(company)}
                       disabled={isSaving}
-                      className="px-3.5 py-1.5 text-xs font-medium text-white bg-[#1D1D1F] hover:bg-black rounded transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                      className="px-3.5 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
                     >
                       {isSaving ? (
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -213,85 +213,85 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                 </div>
 
                 {saveError && (
-                  <div className="p-2.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded">
+                  <div className="p-2.5 text-xs text-rose-300 bg-rose-950/60 border border-rose-800/80 rounded">
                     {saveError}
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Nome da Empresa *
                     </label>
                     <input
                       type="text"
                       value={editForm.nome}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, nome: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="Nome da empresa"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Localização
                     </label>
                     <input
                       type="text"
                       value={editForm.localizacao}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, localizacao: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="Ex: Maia, Zona Industrial"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Website Oficial
                     </label>
                     <input
                       type="url"
                       value={editForm.website}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, website: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="https://exemplo.pt"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       LinkedIn da Empresa
                     </label>
                     <input
                       type="url"
                       value={editForm.linkedin}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, linkedin: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="https://linkedin.com/company/exemplo"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Dimensão Económica
                     </label>
                     <input
                       type="text"
                       value={editForm.dimensaoEconomica}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, dimensaoEconomica: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="Ex: Faturação > €10M, 80 colaboradores"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Sector
                     </label>
                     <select
                       value={editForm.sector}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, sector: e.target.value as any }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500"
                     >
                       <option value="indústria">Indústria</option>
                       <option value="alimentar">Alimentar</option>
@@ -306,53 +306,53 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Contacto Relevante (Nome)
                     </label>
                     <input
                       type="text"
                       value={editForm.contactoNome}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, contactoNome: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="Ex: Dr. António Costa"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       E-mail de Contacto
                     </label>
                     <input
                       type="email"
                       value={editForm.contactoEmail}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, contactoEmail: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="geral@exemplo.pt"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Notas de Estacionamento / Acesso
                     </label>
                     <input
                       type="text"
                       value={editForm.notasEstacionamento}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, notasEstacionamento: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="Ex: Estacionamento privativo no piso térreo"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Razão Estratégica para Candidatura
                     </label>
                     <textarea
                       rows={3}
                       value={editForm.razaoCandidatura}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, razaoCandidatura: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900 resize-y"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 resize-y placeholder:text-neutral-500"
                       placeholder="Razão estratégica e alinhamento de perfil..."
                     />
                   </div>
@@ -361,13 +361,13 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
             ) : (
               <>
             {/* Header: Company Name, Economic Scale & Driving Time */}
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-100">
+            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-800">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h3 className="text-lg font-semibold text-[#1D1D1F] tracking-tight">
+                  <h3 className="text-lg font-semibold text-neutral-100 tracking-tight">
                     {company.nome}
                   </h3>
-                  <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-neutral-100 text-neutral-700 border border-neutral-200">
+                  <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">
                     {company.sector}
                   </span>
                   <span
@@ -376,19 +376,19 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                     {statusStyle.label}
                   </span>
                   {company.dataEnviado && (
-                    <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                    <span className="text-[11px] font-mono text-emerald-300 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
                       Enviado em {formatDatePt(company.dataEnviado)}
                     </span>
                   )}
                 </div>
 
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-600">
-                  <span className="flex items-center gap-1 text-neutral-600 font-medium">
-                    <MapPin className="w-3.5 h-3.5 text-neutral-400" />
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+                  <span className="flex items-center gap-1 text-neutral-400 font-medium">
+                    <MapPin className="w-3.5 h-3.5 text-neutral-500" />
                     {company.localizacao} ({company.distanciaKm} km)
                   </span>
-                  <span className="flex items-center gap-1 text-neutral-700 font-mono">
-                    <TrendingUp className="w-3.5 h-3.5 text-neutral-400" />
+                  <span className="flex items-center gap-1 text-neutral-300 font-mono">
+                    <TrendingUp className="w-3.5 h-3.5 text-neutral-500" />
                     {company.dimensaoEconomica}
                   </span>
                 </div>
@@ -399,15 +399,15 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                 <div
                   className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium ${
                     isPriorityDrive
-                      ? 'bg-emerald-900 text-white'
-                      : 'bg-neutral-800 text-white'
+                      ? 'bg-emerald-950/80 text-emerald-300 border border-emerald-700/60'
+                      : 'bg-neutral-800 text-neutral-300 border border-neutral-700'
                   }`}
                 >
-                  <Car className="w-3.5 h-3.5 text-emerald-300" />
+                  <Car className="w-3.5 h-3.5 text-emerald-400" />
                   <span>~{company.tempoDeslocacaoCarroMin} min de carro</span>
                 </div>
                 {isPriorityDrive && (
-                  <span className="text-[10px] font-mono text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200">
+                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/40">
                     ★ Prioridade Máxima (≤ 5 min)
                   </span>
                 )}
@@ -415,13 +415,13 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
             </div>
 
             {/* Commute Details: Traffic & Parking */}
-            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 py-2 text-[11px] bg-neutral-50 px-3 rounded mt-2.5 border border-neutral-200/60 text-neutral-600">
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 py-2 text-[11px] bg-neutral-800/50 px-3 rounded mt-2.5 border border-neutral-800 text-neutral-400">
               <span className="flex items-center gap-1">
                 <ParkingCircle className="w-3.5 h-3.5 text-neutral-500" />
-                <span className="font-medium text-neutral-800">Estacionamento:</span> {company.notasEstacionamento}
+                <span className="font-medium text-neutral-300">Estacionamento:</span> {company.notasEstacionamento}
               </span>
               <span className="flex items-center gap-1">
-                <span className="font-medium text-neutral-800">Trânsito Habitual:</span>
+                <span className="font-medium text-neutral-300">Trânsito Habitual:</span>
                 <span className="capitalize">{company.nivelTransito}</span>
               </span>
             </div>
@@ -433,51 +433,51 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                 <div className="text-[11px] uppercase tracking-wider font-mono text-neutral-400">
                   Razão Estratégica para Candidatura Espontânea:
                 </div>
-                <p className="text-neutral-700 leading-relaxed text-xs">
+                <p className="text-neutral-300 leading-relaxed text-xs">
                   {company.razaoCandidatura}
                 </p>
-                <p className="text-[11px] text-neutral-400 font-mono pt-1">
+                <p className="text-[11px] text-neutral-500 font-mono pt-1">
                   Encontrada no sistema: {formatDatePt(company.dataEncontrado)}
                 </p>
               </div>
 
               {/* Right Column: Relevant Key Decision Makers */}
-              <div className="md:col-span-5 bg-neutral-50 rounded-md p-3 border border-neutral-200/80 space-y-2">
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-500">
+              <div className="md:col-span-5 bg-neutral-800/40 rounded-md p-3 border border-neutral-800 space-y-2">
+                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-400">
                   <span>Pessoas de Contacto Relevantes</span>
-                  <span className="text-[10px] text-neutral-400">Ordem de Prioridade</span>
+                  <span className="text-[10px] text-neutral-500">Ordem de Prioridade</span>
                 </div>
 
                 <div className="space-y-2">
                   {company.pessoasRelevantes.map((pessoa, idx) => (
-                    <div key={idx} className="border-b border-neutral-200/60 pb-1.5 last:border-0 last:pb-0">
+                    <div key={idx} className="border-b border-neutral-800 pb-1.5 last:border-0 last:pb-0">
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-neutral-900 text-xs">{pessoa.nome}</span>
+                        <span className="font-semibold text-neutral-200 text-xs">{pessoa.nome}</span>
                         {pessoa.verificado ? (
-                          <span className="flex items-center gap-0.5 text-[10px] text-emerald-700 font-mono">
+                          <span className="flex items-center gap-0.5 text-[10px] text-emerald-400 font-mono">
                             <ShieldCheck className="w-3 h-3" /> Verificado
                           </span>
                         ) : (
-                          <span className="flex items-center gap-0.5 text-[10px] text-amber-700 font-mono">
+                          <span className="flex items-center gap-0.5 text-[10px] text-amber-400 font-mono">
                             <ShieldAlert className="w-3 h-3" /> Não Verificado
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] text-neutral-600">
+                      <p className="text-[11px] text-neutral-400">
                         {pessoa.cargo}
-                        <span className="text-neutral-400 ml-1 text-[10px] font-mono">
+                        <span className="text-neutral-500 ml-1 text-[10px] font-mono">
                           (P{pessoa.prioridade})
                         </span>
                       </p>
                       {pessoa.email && (
-                        <p className="text-neutral-700 font-mono text-[11px] mt-0.5">{pessoa.email}</p>
+                        <p className="text-neutral-300 font-mono text-[11px] mt-0.5">{pessoa.email}</p>
                       )}
                       {pessoa.linkedin && (
                         <a
                           href={pessoa.linkedin}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-[11px] text-neutral-700 hover:text-neutral-950 underline mt-0.5"
+                          className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 underline mt-0.5"
                         >
                           LinkedIn
                           <ExternalLink className="w-2.5 h-2.5" />
@@ -489,7 +489,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
 
                 {/* Google Search Ready-to-copy queries */}
                 {company.pesquisasGoogleSugeridas && company.pesquisasGoogleSugeridas.length > 0 && (
-                  <div className="pt-2 border-t border-neutral-200/80">
+                  <div className="pt-2 border-t border-neutral-800">
                     <div className="text-[10px] font-mono uppercase text-neutral-400 mb-1 flex items-center gap-1">
                       <Search className="w-3 h-3" />
                       <span>Pesquisas Google LinkedIn (1-clique para copiar):</span>
@@ -498,18 +498,18 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                       {company.pesquisasGoogleSugeridas.map((query, qIdx) => (
                         <div
                           key={qIdx}
-                          className="flex items-center justify-between gap-1 text-[10px] font-mono bg-white p-1 rounded border border-neutral-200 text-neutral-700"
+                          className="flex items-center justify-between gap-1 text-[10px] font-mono bg-neutral-800 p-1 rounded border border-neutral-700 text-neutral-300"
                         >
                           <span className="truncate" title={query}>{query}</span>
                           <div className="flex items-center gap-1 shrink-0">
                             <button
                               type="button"
                               onClick={() => handleCopy(query)}
-                              className="p-1 text-neutral-500 hover:text-neutral-900 cursor-pointer"
+                              className="p-1 text-neutral-400 hover:text-neutral-200 cursor-pointer"
                               title="Copiar termo de pesquisa"
                             >
                               {copiedQuery === query ? (
-                                <Check className="w-3 h-3 text-emerald-600" />
+                                <Check className="w-3 h-3 text-emerald-400" />
                               ) : (
                                 <Copy className="w-3 h-3" />
                               )}
@@ -517,7 +517,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                             <button
                               type="button"
                               onClick={() => onOpenGoogleSearch(query)}
-                              className="p-1 text-neutral-500 hover:text-neutral-900 cursor-pointer"
+                              className="p-1 text-neutral-400 hover:text-neutral-200 cursor-pointer"
                               title="Abrir pesquisa no Google"
                             >
                               <ExternalLink className="w-3 h-3" />
@@ -532,15 +532,15 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
             </div>
 
             {/* Footer Row: External Links & Primary Actions */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-100">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-800">
               {/* External Links */}
-              <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400">
                 {company.website && (
                   <a
                     href={company.website}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-neutral-800 hover:text-neutral-950 underline font-medium"
+                    className="inline-flex items-center gap-1 text-neutral-300 hover:text-white underline font-medium"
                   >
                     <Globe className="w-3 h-3" />
                     <span>Website Oficial</span>
@@ -551,7 +551,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                     href={company.linkedin}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-neutral-600 hover:text-neutral-900"
+                    className="inline-flex items-center gap-1 text-neutral-400 hover:text-neutral-200"
                   >
                     <span>LinkedIn da Empresa</span>
                   </a>
@@ -564,7 +564,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                 <select
                   value={company.estado}
                   onChange={(e) => onUpdateStatus(company.id, e.target.value as OfferStatus)}
-                  className="text-xs bg-white border border-neutral-200 rounded px-2 py-1 text-neutral-700 cursor-pointer focus:outline-none focus:border-neutral-400"
+                  className="text-xs bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-neutral-200 cursor-pointer focus:outline-none focus:border-neutral-500"
                   aria-label="Alterar estado da candidatura espontânea"
                 >
                   <option value="novo">Novo</option>
@@ -579,7 +579,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                   <button
                     type="button"
                     onClick={() => onUpdateStatus(company.id, 'enviado')}
-                    className="px-2.5 py-1 text-xs border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded transition-colors cursor-pointer flex items-center gap-1"
+                    className="px-2.5 py-1 text-xs border border-emerald-800/60 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950/70 rounded transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <CheckCircle className="w-3 h-3" />
                     <span>Marcar Enviado</span>
@@ -590,7 +590,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                 <button
                   type="button"
                   onClick={() => handleStartEdit(company)}
-                  className="px-2.5 py-1 text-xs border border-neutral-200 text-neutral-700 bg-white hover:bg-neutral-100 rounded transition-colors cursor-pointer flex items-center gap-1"
+                  className="px-2.5 py-1 text-xs border border-neutral-700 text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors cursor-pointer flex items-center gap-1"
                   aria-label="Editar registo da empresa"
                 >
                   <Edit2 className="w-3 h-3" />
@@ -601,7 +601,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                 <button
                   type="button"
                   onClick={() => onOpenEmail(company)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1D1D1F] hover:bg-black text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-xs"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-xs"
                 >
                   <Mail className="w-3.5 h-3.5" />
                   <span>E-mail</span>

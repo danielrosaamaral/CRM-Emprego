@@ -121,8 +121,8 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
 
   if (offers.length === 0) {
     return (
-      <div className="text-center py-16 px-4 bg-white rounded-lg border border-neutral-200">
-        <p className="text-base font-semibold text-neutral-700 mb-2">
+      <div className="text-center py-16 px-4 bg-neutral-900 rounded-lg border border-neutral-800">
+        <p className="text-base font-semibold text-neutral-300 mb-2">
           Nenhuma oferta de emprego encontrada para os filtros atuais.
         </p>
         <p className="text-xs text-neutral-500 max-w-md mx-auto">
@@ -141,19 +141,19 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
         return (
           <article
             key={offer.id}
-            className={`bg-white border ${
-              isEditing ? 'border-neutral-900 ring-1 ring-neutral-900/10' : 'border-[#E5E5EA]'
-            } rounded-lg p-5 transition-all hover:border-neutral-300 shadow-xs`}
+            className={`bg-neutral-900 border ${
+              isEditing ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-neutral-800'
+            } rounded-lg p-5 transition-all hover:border-neutral-700 shadow-xs`}
           >
             {isEditing ? (
               /* Inline Edit Form */
               <div className="space-y-4">
-                <div className="flex items-center justify-between pb-3 border-b border-neutral-200">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
                   <div className="flex items-center gap-2">
-                    <span className="font-semibold text-base text-[#1D1D1F]">
+                    <span className="font-semibold text-base text-neutral-100">
                       Editar Registo da Oferta
                     </span>
-                    <span className="text-[10px] font-mono text-neutral-500 bg-neutral-100 px-1.5 py-0.5 rounded border border-neutral-200">
+                    <span className="text-[10px] font-mono text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-700">
                       ID: {offer.id}
                     </span>
                   </div>
@@ -162,7 +162,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                       type="button"
                       onClick={handleCancelEdit}
                       disabled={isSaving}
-                      className="px-3 py-1.5 text-xs font-medium text-neutral-700 bg-neutral-100 hover:bg-neutral-200 rounded transition-colors cursor-pointer flex items-center gap-1.5"
+                      className="px-3 py-1.5 text-xs font-medium text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded border border-neutral-700 transition-colors cursor-pointer flex items-center gap-1.5"
                     >
                       <X className="w-3.5 h-3.5" />
                       <span>Cancelar</span>
@@ -171,7 +171,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                       type="button"
                       onClick={() => handleSaveEdit(offer)}
                       disabled={isSaving}
-                      className="px-3.5 py-1.5 text-xs font-medium text-white bg-[#1D1D1F] hover:bg-black rounded transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
+                      className="px-3.5 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
                     >
                       {isSaving ? (
                         <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -184,86 +184,86 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                 </div>
 
                 {saveError && (
-                  <div className="p-2.5 text-xs text-rose-700 bg-rose-50 border border-rose-200 rounded">
+                  <div className="p-2.5 text-xs text-rose-300 bg-rose-950/60 border border-rose-800/80 rounded">
                     {saveError}
                   </div>
                 )}
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Empresa *
                     </label>
                     <input
                       type="text"
                       value={editForm.empresa}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, empresa: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="Nome da empresa"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Função *
                     </label>
                     <input
                       type="text"
                       value={editForm.funcao}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, funcao: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="Função ou cargo"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Localização
                     </label>
                     <input
                       type="text"
                       value={editForm.localizacao}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, localizacao: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="ex: Porto / Matosinhos"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Contacto / E-mail
                     </label>
                     <input
                       type="text"
                       value={editForm.email}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, email: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 placeholder:text-neutral-500"
                       placeholder="ex: recrutamento@empresa.pt"
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       URL Principal da Oferta
                     </label>
                     <input
                       type="url"
                       value={editForm.urlOferta}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, urlOferta: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900 font-mono text-xs"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 font-mono text-xs placeholder:text-neutral-500"
                       placeholder="https://..."
                     />
                   </div>
 
                   <div className="sm:col-span-2">
-                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-400 mb-1">
                       Notas
                     </label>
                     <textarea
                       rows={3}
                       value={editForm.notas}
                       onChange={(e) => setEditForm((prev) => ({ ...prev, notas: e.target.value }))}
-                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900 resize-y"
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 resize-y placeholder:text-neutral-500"
                       placeholder="Notas internas ou observações sobre a oferta..."
                     />
                   </div>
@@ -273,10 +273,10 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
               /* Display View */
               <>
                 {/* Header: Company, Role & Status */}
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-100">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-800">
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h3 className="text-lg font-semibold text-[#1D1D1F] tracking-tight">
+                      <h3 className="text-lg font-semibold text-neutral-100 tracking-tight">
                         {offer.funcao}
                       </h3>
                       <span
@@ -285,26 +285,26 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         {statusStyle.label}
                       </span>
                       {offer.dataEnviado && (
-                        <span className="text-[11px] font-mono text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                        <span className="text-[11px] font-mono text-emerald-400 bg-emerald-950/60 px-2 py-0.5 rounded border border-emerald-800/60">
                           Enviado em {formatDatePt(offer.dataEnviado)}
                         </span>
                       )}
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-600">
-                      <span className="font-medium text-neutral-900">{offer.empresa}</span>
-                      <span className="flex items-center gap-1 text-neutral-500">
-                        <MapPin className="w-3.5 h-3.5 text-neutral-400" />
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+                      <span className="font-medium text-neutral-200">{offer.empresa}</span>
+                      <span className="flex items-center gap-1 text-neutral-400">
+                        <MapPin className="w-3.5 h-3.5 text-neutral-500" />
                         {offer.localizacao} ({offer.distanciaKm} km
                         {offer.tempoCarroMin ? ` · ~${offer.tempoCarroMin} min de carro` : ''})
                       </span>
                       {offer.dataOferta && (
                         <span className="flex items-center gap-1 text-neutral-400">
-                          <Calendar className="w-3.5 h-3.5" />
+                          <Calendar className="w-3.5 h-3.5 text-neutral-500" />
                           Oferta: {formatDatePt(offer.dataOferta)}
                         </span>
                       )}
-                      <span className="text-neutral-400">
+                      <span className="text-neutral-500">
                         Encontrada: {formatDatePt(offer.dataEncontrado)}
                       </span>
                     </div>
@@ -312,7 +312,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
 
                   {/* Compatibility Score Pill */}
                   <div className="flex sm:flex-col items-center sm:items-end gap-2 shrink-0">
-                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-neutral-900 text-white text-xs font-mono font-medium">
+                    <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-neutral-800 border border-neutral-700 text-neutral-100 text-xs font-mono font-medium">
                       <Sparkles className="w-3 h-3 text-amber-400" />
                       <span>{offer.grauCompatibilidade}% compatível</span>
                     </div>
@@ -329,56 +329,56 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                     </div>
                     <ul className="space-y-1">
                       {offer.razoesCompatibilidade.map((razao, idx) => (
-                        <li key={idx} className="flex items-start gap-2 text-neutral-700">
-                          <span className="text-neutral-400 select-none">•</span>
+                        <li key={idx} className="flex items-start gap-2 text-neutral-300">
+                          <span className="text-neutral-500 select-none">•</span>
                           <span>{razao}</span>
                         </li>
                       ))}
                     </ul>
                     {offer.resumoRequisitos && (
-                      <p className="text-neutral-500 italic pt-1 border-t border-neutral-100 text-[11px]">
+                      <p className="text-neutral-400 italic pt-1 border-t border-neutral-800 text-[11px]">
                         Requisitos: {offer.resumoRequisitos}
                       </p>
                     )}
 
                     {/* Notas, se existirem */}
                     {offer.notas && (
-                      <div className="mt-2 text-xs bg-amber-50/60 border border-amber-200/70 rounded p-2 text-neutral-800 flex items-start gap-1.5">
-                        <FileText className="w-3.5 h-3.5 text-amber-700 shrink-0 mt-0.5" />
+                      <div className="mt-2 text-xs bg-amber-950/40 border border-amber-800/50 rounded p-2 text-amber-200 flex items-start gap-1.5">
+                        <FileText className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
                         <div>
-                          <span className="font-semibold text-neutral-800">Notas:</span> {offer.notas}
+                          <span className="font-semibold text-amber-100">Notas:</span> {offer.notas}
                         </div>
                       </div>
                     )}
                   </div>
 
                   {/* Right Column: Contact & Verification */}
-                  <div className="md:col-span-5 bg-neutral-50 rounded-md p-3 border border-neutral-200/80 space-y-2">
-                    <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-500">
+                  <div className="md:col-span-5 bg-neutral-800/60 rounded-md p-3 border border-neutral-700/80 space-y-2">
+                    <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-400">
                       <span>Pessoa / Contacto Relevante</span>
                       {offer.contactoRelevante ? (
                         offer.contactoRelevante.verificado ? (
-                          <span className="flex items-center gap-1 text-emerald-700 font-medium">
+                          <span className="flex items-center gap-1 text-emerald-400 font-medium">
                             <ShieldCheck className="w-3 h-3" /> Verificado
                           </span>
                         ) : (
-                          <span className="flex items-center gap-1 text-amber-700">
+                          <span className="flex items-center gap-1 text-amber-400">
                             <ShieldAlert className="w-3 h-3" /> Não Verificado
                           </span>
                         )
                       ) : (
-                        <span className="text-neutral-400">Não Identificado</span>
+                        <span className="text-neutral-500">Não Identificado</span>
                       )}
                     </div>
 
                     {offer.contactoRelevante ? (
                       <div className="space-y-1">
-                        <p className="font-semibold text-neutral-900">
+                        <p className="font-semibold text-neutral-100">
                           {offer.contactoRelevante.nome}
                         </p>
-                        <p className="text-neutral-600 text-[11px]">{offer.contactoRelevante.cargo}</p>
+                        <p className="text-neutral-400 text-[11px]">{offer.contactoRelevante.cargo}</p>
                         {offer.contactoRelevante.email && (
-                          <p className="text-neutral-700 font-mono text-[11px]">
+                          <p className="text-neutral-300 font-mono text-[11px]">
                             {offer.contactoRelevante.email}
                           </p>
                         )}
@@ -387,21 +387,21 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                             href={offer.contactoRelevante.linkedin}
                             target="_blank"
                             rel="noreferrer"
-                            className="inline-flex items-center gap-1 text-neutral-700 hover:text-neutral-900 underline text-[11px]"
+                            className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline text-[11px]"
                           >
                             Ver Perfil no LinkedIn
                           </a>
                         )}
                       </div>
                     ) : (
-                      <div className="space-y-1.5 text-neutral-500">
+                      <div className="space-y-1.5 text-neutral-400">
                         <p className="text-[11px]">Contacto direto não identificado na oferta pública.</p>
                         <button
                           type="button"
                           onClick={() =>
                             onOpenGoogleSearch(`site:linkedin.com/in "${offer.empresa}" recursos humanos`)
                           }
-                          className="inline-flex items-center gap-1 text-[11px] font-mono text-neutral-700 hover:text-neutral-950 underline cursor-pointer"
+                          className="inline-flex items-center gap-1 text-[11px] font-mono text-blue-400 hover:text-blue-300 underline cursor-pointer"
                         >
                           <Search className="w-3 h-3" />
                           Procurar RH de {offer.empresa} no LinkedIn
@@ -412,9 +412,9 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                 </div>
 
                 {/* Footer Row: Source Links & Primary Actions */}
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-100">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-800">
                   {/* External Links */}
-                  <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
+                  <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400">
                     {offer.fontesUrls && offer.fontesUrls.length > 1 ? (
                       offer.fontesUrls.map((url, idx) => (
                         <a
@@ -422,7 +422,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                           href={url}
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-neutral-800 hover:text-neutral-950 underline font-medium"
+                          className="inline-flex items-center gap-1 text-neutral-300 hover:text-neutral-100 underline font-medium"
                           title={url}
                         >
                           <span>Fonte {idx + 1}</span>
@@ -434,7 +434,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         href={offer.urlOferta}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-neutral-800 hover:text-neutral-950 underline font-medium"
+                        className="inline-flex items-center gap-1 text-neutral-300 hover:text-neutral-100 underline font-medium"
                       >
                         <span>Ver Oferta</span>
                         <ExternalLink className="w-3 h-3" />
@@ -445,7 +445,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         href={offer.websiteEmpresa}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-neutral-600 hover:text-neutral-900"
+                        className="inline-flex items-center gap-1 text-neutral-400 hover:text-neutral-200"
                       >
                         <Globe className="w-3 h-3" />
                         <span>Website</span>
@@ -456,7 +456,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         href={offer.linkedinEmpresa}
                         target="_blank"
                         rel="noreferrer"
-                        className="inline-flex items-center gap-1 text-neutral-600 hover:text-neutral-900"
+                        className="inline-flex items-center gap-1 text-neutral-400 hover:text-neutral-200"
                       >
                         <span>LinkedIn Empresa</span>
                       </a>
@@ -470,7 +470,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                       type="button"
                       onClick={() => handleStartEdit(offer)}
                       title="Editar detalhes da oferta"
-                      className="px-2.5 py-1 text-xs border border-neutral-300 text-neutral-700 bg-neutral-50 hover:bg-neutral-100 rounded transition-colors cursor-pointer flex items-center gap-1"
+                      className="px-2.5 py-1 text-xs border border-neutral-700 text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors cursor-pointer flex items-center gap-1"
                     >
                       <Pencil className="w-3 h-3" />
                       <span>Editar</span>
@@ -480,7 +480,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                     <select
                       value={offer.estado}
                       onChange={(e) => onUpdateStatus(offer.id, e.target.value as OfferStatus)}
-                      className="text-xs bg-white border border-neutral-200 rounded px-2 py-1 text-neutral-700 cursor-pointer focus:outline-none focus:border-neutral-400"
+                      className="text-xs bg-neutral-800 border border-neutral-700 rounded px-2 py-1 text-neutral-200 cursor-pointer focus:outline-none focus:border-blue-500"
                       aria-label="Alterar estado da oferta"
                     >
                       <option value="novo">Novo</option>
@@ -496,7 +496,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         type="button"
                         onClick={() => onUpdateStatus(offer.id, 'enviado')}
                         title="Marcar como Enviado"
-                        className="px-2.5 py-1 text-xs border border-emerald-300 text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded transition-colors cursor-pointer flex items-center gap-1"
+                        className="px-2.5 py-1 text-xs border border-emerald-700/80 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-900/50 rounded transition-colors cursor-pointer flex items-center gap-1"
                       >
                         <CheckCircle className="w-3 h-3" />
                         <span>Marcar Enviado</span>
@@ -507,7 +507,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                     <button
                       type="button"
                       onClick={() => onOpenEmail(offer)}
-                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#1D1D1F] hover:bg-black text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-xs"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-xs"
                     >
                       <Mail className="w-3.5 h-3.5" />
                       <span>E-mail</span>

@@ -584,7 +584,7 @@ export default function App() {
   }, [offers, companies]);
 
   return (
-    <div className="min-h-screen bg-[#FBFBFD] text-[#1D1D1F] flex flex-col font-sans selection:bg-neutral-200">
+    <div className="min-h-screen bg-[#0B0F17] text-neutral-100 flex flex-col font-sans selection:bg-neutral-800">
       {/* Editorial Header */}
       <Header
         activeTab={activeTab}
@@ -640,7 +640,7 @@ export default function App() {
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {isLoading ? (
           <div className="text-center py-20">
-            <div className="inline-block w-6 h-6 border-2 border-neutral-900 border-t-transparent rounded-full animate-spin mb-3"></div>
+            <div className="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
             <p className="text-base text-neutral-600">A carregar base de candidaturas...</p>
           </div>
         ) : (
@@ -713,12 +713,12 @@ export default function App() {
       )}
 
       {/* Subtle Editorial Footer */}
-      <footer className="border-t border-[#E5E5EA] bg-white py-4 mt-auto">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-neutral-500">
+      <footer className="border-t border-neutral-800 bg-neutral-900 py-4 mt-auto">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-2 text-xs text-neutral-400">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-neutral-800">Atelier Daniel Rosa Amaral</span>
-            <span>·</span>
-            <span>25 Anos de Experiência em Design & Estratégia</span>
+            <span className="font-semibold text-neutral-200">Atelier Daniel Rosa Amaral</span>
+            <span className="text-neutral-600">·</span>
+            <span className="text-neutral-400">25 Anos de Experiência em Design & Estratégia</span>
           </div>
           <div className="flex items-center gap-3 text-[11px] font-mono">
             <span>Persistência JSON Ativa</span>
