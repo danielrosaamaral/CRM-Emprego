@@ -398,7 +398,8 @@ async function startServer() {
   // Search/Recall from Knowledge Base
   app.post('/api/knowledge/recall', async (req, res) => {
     try {
-      const { pergunta, docIds } = req.body;
+      const pergunta = req.body.pergunta || req.body.question;
+      const { docIds } = req.body;
       if (!pergunta) {
         return res.status(400).json({ error: 'Pergunta é obrigatória' });
       }
