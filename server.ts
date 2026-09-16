@@ -11,6 +11,8 @@ import { testGroqConnection } from './server/engines/groqEngine.js';
 import { testMistralConnection } from './server/engines/mistralEngine.js';
 import { router } from './server/engines/router.js';
 import { knowledgeService } from './server/knowledgeService.js';
+import { extractTextFromPdfBuffer } from './server/pdfUtils.js';
+import { geoService } from './server/geoService.js';
 import { searchService } from './server/searchService.js';
 import { db } from './server/storage.js';
 import { EngineType } from './src/types.js';
@@ -194,10 +196,15 @@ async function startServer() {
   app.post('/api/settings/test-key', handleTestEngineConnection);
 
   // Update settings (e.g. location, engine configurations, routing)
-  app.post('/api/settings', (req, res) => {
+  app.post('/api/settings', async (req, res) => {
     try {
       const body = req.body;
       const newSettings = db.updateSettings(body);
+
+      // Recalculate distances dynamically across all offers and companies if locationBase changed
+      if (body.localizacaoBase) {
+        await db.recalculateAllDistances(body.localizacaoBase);
+      }
 
       // Also persist to config.json
       if (body.localizacaoBase || body.distanciaKmPadrao || body.tempoCarroMaxMin) {
@@ -233,7 +240,7 @@ async function startServer() {
         }
       }
 
-      res.json({ success: true, definicoes: responseSettings });
+      res.json({ success: true, definicoes: responseSettings, data: db.getData() });
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao atualizar definições' });
     }
@@ -269,6 +276,31 @@ async function startServer() {
     }
   });
 
+  // Update offer details (inline editing)
+  const handleUpdateOfferRoute = async (req: express.Request, res: express.Response) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      if (updates.localizacao) {
+        updates.localizacao = geoService.cleanLocationName(updates.localizacao);
+        const base = db.getData().definicoes.localizacaoBase;
+        const calc = await geoService.calculateDistanceAndDuration(base, updates.localizacao);
+        updates.distanciaKm = calc.distanciaKm;
+        updates.tempoCarroMin = calc.tempoCarroMin;
+      }
+      const updated = db.updateOffer(id, updates);
+      if (!updated) {
+        return res.status(404).json({ error: 'Oferta não encontrada' });
+      }
+      res.json({ success: true, oferta: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao atualizar oferta' });
+    }
+  };
+
+  app.put('/api/offers/:id', handleUpdateOfferRoute);
+  app.post('/api/offers/:id', handleUpdateOfferRoute);
+
   // Update offer status
   app.post('/api/offers/:id/status', (req, res) => {
     try {
@@ -283,6 +315,31 @@ async function startServer() {
       res.status(500).json({ error: err?.message || 'Erro ao atualizar estado' });
     }
   });
+
+  // Update company details (inline editing)
+  const handleUpdateCompanyRoute = async (req: express.Request, res: express.Response) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      if (updates.localizacao) {
+        updates.localizacao = geoService.cleanLocationName(updates.localizacao);
+        const base = db.getData().definicoes.localizacaoBase;
+        const calc = await geoService.calculateDistanceAndDuration(base, updates.localizacao);
+        updates.distanciaKm = calc.distanciaKm;
+        updates.tempoDeslocacaoCarroMin = calc.tempoCarroMin;
+      }
+      const updated = db.updateCompany(id, updates);
+      if (!updated) {
+        return res.status(404).json({ error: 'Empresa não encontrada' });
+      }
+      res.json({ success: true, empresa: updated });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao atualizar empresa' });
+    }
+  };
+
+  app.put('/api/companies/:id', handleUpdateCompanyRoute);
+  app.post('/api/companies/:id', handleUpdateCompanyRoute);
 
   // Update company status
   app.post('/api/companies/:id/status', (req, res) => {
@@ -302,11 +359,11 @@ async function startServer() {
   // Generate factual customized email
   app.post('/api/email/generate', async (req, res) => {
     try {
-      const { type, item } = req.body;
+      const { type, item, docIds } = req.body;
       if (!type || !item) {
         return res.status(400).json({ error: 'Parâmetros "type" e "item" são obrigatórios' });
       }
-      const email = await searchService.generateApplicationEmail(type, item);
+      const email = await searchService.generateApplicationEmail(type, item, docIds);
       res.json(email);
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro ao gerar e-mail' });
@@ -336,15 +393,27 @@ async function startServer() {
   // Upload and index CV/Portfolio
   app.post('/api/knowledge/upload', async (req, res) => {
     try {
-      const { tipo, nomeFicheiro, conteudoTexto, tamanhoBytes } = req.body;
-      if (!nomeFicheiro || !conteudoTexto) {
+      const { tipo, nomeFicheiro, conteudoTexto, conteudoBase64, tamanhoBytes } = req.body;
+      if (!nomeFicheiro || (!conteudoTexto && !conteudoBase64)) {
         return res.status(400).json({ error: 'Ficheiro ou conteúdo inválido' });
       }
+
+      let textToProcess = conteudoTexto || '';
+      if (conteudoBase64) {
+        try {
+          const pdfBuffer = Buffer.from(conteudoBase64, 'base64');
+          textToProcess = extractTextFromPdfBuffer(pdfBuffer);
+        } catch (pdfErr) {
+          console.warn('Erro ao processar buffer PDF:', pdfErr);
+          textToProcess = '[Documento PDF sem camada de texto pesquisável / digitalizado exclusivamente como imagem sem OCR]';
+        }
+      }
+
       const doc = await knowledgeService.indexDocument(
         tipo || 'cv',
         nomeFicheiro,
-        conteudoTexto,
-        tamanhoBytes || conteudoTexto.length
+        textToProcess,
+        tamanhoBytes || textToProcess.length
       );
       res.json({ success: true, documento: doc, todosDocumentos: db.getData().documentos });
     } catch (err: any) {
@@ -352,14 +421,29 @@ async function startServer() {
     }
   });
 
+  // Delete document from Knowledge Base
+  app.delete('/api/knowledge/:id', (req, res) => {
+    try {
+      const { id } = req.params;
+      const success = db.deleteDocument(id);
+      if (!success) {
+        return res.status(404).json({ error: 'Documento não encontrado' });
+      }
+      res.json({ success: true, todosDocumentos: db.getData().documentos });
+    } catch (err: any) {
+      res.status(500).json({ error: err?.message || 'Erro ao apagar documento' });
+    }
+  });
+
   // Search/Recall from Knowledge Base
   app.post('/api/knowledge/recall', async (req, res) => {
     try {
-      const { pergunta } = req.body;
+      const pergunta = req.body.pergunta || req.body.question;
+      const { docIds } = req.body;
       if (!pergunta) {
         return res.status(400).json({ error: 'Pergunta é obrigatória' });
       }
-      const recallResult = await knowledgeService.recall(pergunta);
+      const recallResult = await knowledgeService.recall(pergunta, docIds);
       res.json(recallResult);
     } catch (err: any) {
       res.status(500).json({ error: err?.message || 'Erro no recall da base de conhecimento' });
@@ -421,6 +505,13 @@ async function startServer() {
     app.get('*', (req, res) => {
       res.sendFile(path.join(distPath, 'index.html'));
     });
+  }
+
+  // Recalculate geographic distances on boot using current base location
+  try {
+    await db.recalculateAllDistances();
+  } catch (geoErr) {
+    console.warn('Aviso: falha ao recalcular distâncias no arranque:', geoErr);
   }
 
   app.listen(PORT, '0.0.0.0', () => {

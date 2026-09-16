@@ -1,5 +1,6 @@
 import { JobOffer, SpontaneousCompany } from '../src/types.js';
 import { router } from './engines/router.js';
+import { geoService } from './geoService.js';
 import { db } from './storage.js';
 
 export class SearchService {
@@ -62,35 +63,41 @@ Responde APENAS em formato JSON válido com este formato:
       const parsed = JSON.parse(res.text);
       const rawOffers = Array.isArray(parsed.ofertas) ? parsed.ofertas : [];
 
-      const newOffers: JobOffer[] = rawOffers.map((o: any, idx: number) => ({
-        id: `off_${Date.now()}_${idx}`,
-        empresa: o.empresa || 'Empresa Confidencial',
-        funcao: o.funcao || 'Senior Designer',
-        localizacao: o.localizacao || locationBase,
-        distanciaKm: typeof o.distanciaKm === 'number' ? o.distanciaKm : Math.min(maxKm, 6),
-        tempoCarroMin: typeof o.tempoCarroMin === 'number' ? o.tempoCarroMin : 9,
-        dataOferta: o.dataOferta || new Date().toISOString().split('T')[0],
-        urlOferta: o.urlOferta || `https://linkedin.com/jobs/search/?keywords=${encodeURIComponent(o.funcao || 'designer')}`,
-        websiteEmpresa: o.websiteEmpresa || `https://google.com/search?q=${encodeURIComponent(o.empresa || '')}`,
-        linkedinEmpresa: o.linkedinEmpresa,
-        contactoRelevante: o.contactoRelevante
-          ? {
-              nome: o.contactoRelevante.nome || 'Responsável de Recrutamento',
-              cargo: o.contactoRelevante.cargo || 'Recursos Humanos',
-              linkedin: o.contactoRelevante.linkedin,
-              email: o.contactoRelevante.email,
-              verificado: !!o.contactoRelevante.verificado,
-            }
-          : undefined,
-        grauCompatibilidade: typeof o.grauCompatibilidade === 'number' ? o.grauCompatibilidade : 90,
-        razoesCompatibilidade: Array.isArray(o.razoesCompatibilidade)
-          ? o.razoesCompatibilidade
-          : ['Alinhamento direto com os 25 anos de experiência do candidato.'],
-        estado: 'novo',
-        dataEncontrado: new Date().toISOString().split('T')[0],
-        sector: o.sector || 'indústria',
-        resumoRequisitos: o.resumoRequisitos || 'Perfil sénior em design visual, embalagem e estratégia de marca.',
-      }));
+      const newOffers: JobOffer[] = await Promise.all(
+        rawOffers.map(async (o: any, idx: number) => {
+          const loc = geoService.cleanLocationName(o.localizacao || locationBase);
+          const geoCalc = await geoService.calculateDistanceAndDuration(locationBase, loc);
+          return {
+            id: `off_${Date.now()}_${idx}`,
+            empresa: o.empresa || 'Empresa Confidencial',
+            funcao: o.funcao || 'Senior Designer',
+            localizacao: loc,
+            distanciaKm: geoCalc.distanciaKm,
+            tempoCarroMin: geoCalc.tempoCarroMin,
+            dataOferta: o.dataOferta || new Date().toISOString().split('T')[0],
+            urlOferta: o.urlOferta || `https://linkedin.com/jobs/search/?keywords=${encodeURIComponent(o.funcao || 'designer')}`,
+            websiteEmpresa: o.websiteEmpresa || `https://google.com/search?q=${encodeURIComponent(o.empresa || '')}`,
+            linkedinEmpresa: o.linkedinEmpresa,
+            contactoRelevante: o.contactoRelevante
+              ? {
+                  nome: o.contactoRelevante.nome || 'Responsável de Recrutamento',
+                  cargo: o.contactoRelevante.cargo || 'Recursos Humanos',
+                  linkedin: o.contactoRelevante.linkedin,
+                  email: o.contactoRelevante.email,
+                  verificado: !!o.contactoRelevante.verificado,
+                }
+              : undefined,
+            grauCompatibilidade: typeof o.grauCompatibilidade === 'number' ? o.grauCompatibilidade : 90,
+            razoesCompatibilidade: Array.isArray(o.razoesCompatibilidade)
+              ? o.razoesCompatibilidade
+              : ['Alinhamento direto com os 25 anos de experiência do candidato.'],
+            estado: 'novo',
+            dataEncontrado: new Date().toISOString().split('T')[0],
+            sector: o.sector || 'indústria',
+            resumoRequisitos: o.resumoRequisitos || 'Perfil sénior em design visual, embalagem e estratégia de marca.',
+          };
+        })
+      );
 
       const result = db.updateOffers(newOffers);
       return {
@@ -181,46 +188,52 @@ Responde APENAS em JSON no formato:
       const parsed = JSON.parse(res.text);
       const rawCompanies = Array.isArray(parsed.empresas) ? parsed.empresas : [];
 
-      const newCompanies: SpontaneousCompany[] = rawCompanies.map((c: any, idx: number) => ({
-        id: `comp_${Date.now()}_${idx}`,
-        nome: c.nome || 'Empresa Local',
-        localizacao: c.localizacao || locationBase,
-        distanciaKm: typeof c.distanciaKm === 'number' ? c.distanciaKm : 4.0,
-        tempoDeslocacaoCarroMin: typeof c.tempoDeslocacaoCarroMin === 'number' ? c.tempoDeslocacaoCarroMin : 6,
-        nivelTransito: c.nivelTransito === 'elevado' ? 'elevado' : c.nivelTransito === 'moderado' ? 'moderado' : 'baixo',
-        notasEstacionamento: c.notasEstacionamento || 'Estacionamento disponível nas imediações.',
-        website: c.website || `https://google.com/search?q=${encodeURIComponent(c.nome || '')}`,
-        linkedin: c.linkedin || `https://linkedin.com/company/search?keywords=${encodeURIComponent(c.nome || '')}`,
-        dimensaoEconomica: c.dimensaoEconomica || 'Empresa de dimensão económica de relevo.',
-        sector: c.sector || 'indústria',
-        razaoCandidatura: c.razaoCandidatura || 'Grande volume de produtos e suportes com necessidade contínua de design de topo.',
-        pessoasRelevantes: Array.isArray(c.pessoasRelevantes) && c.pessoasRelevantes.length > 0
-          ? c.pessoasRelevantes.map((p: any) => ({
-              nome: p.nome || 'Responsável de Marketing / RH',
-              cargo: p.cargo || 'Direção',
-              prioridade: p.prioridade || 1,
-              linkedin: p.linkedin,
-              email: p.email,
-              verificado: !!p.verificado,
-            }))
-          : [
-              {
-                nome: 'Direção de Marketing & Comunicação',
-                cargo: 'Diretor(a) de Marketing',
-                prioridade: 1,
-                verificado: false,
-              },
-            ],
-        pesquisasGoogleSugeridas: Array.isArray(c.pesquisasGoogleSugeridas) && c.pesquisasGoogleSugeridas.length > 0
-          ? c.pesquisasGoogleSugeridas
-          : [
-              `site:linkedin.com/in "${c.nome}" marketing`,
-              `site:linkedin.com/in "${c.nome}" recursos humanos`,
-              `site:linkedin.com/in "${c.nome}" director`,
-            ],
-        estado: 'novo',
-        dataEncontrado: new Date().toISOString().split('T')[0],
-      }));
+      const newCompanies: SpontaneousCompany[] = await Promise.all(
+        rawCompanies.map(async (c: any, idx: number) => {
+          const loc = geoService.cleanLocationName(c.localizacao || locationBase);
+          const geoCalc = await geoService.calculateDistanceAndDuration(locationBase, loc);
+          return {
+            id: `comp_${Date.now()}_${idx}`,
+            nome: c.nome || 'Empresa Local',
+            localizacao: loc,
+            distanciaKm: geoCalc.distanciaKm,
+            tempoDeslocacaoCarroMin: geoCalc.tempoCarroMin,
+            nivelTransito: c.nivelTransito === 'elevado' ? 'elevado' : c.nivelTransito === 'moderado' ? 'moderado' : 'baixo',
+            notasEstacionamento: c.notasEstacionamento || 'Estacionamento disponível nas imediações.',
+            website: c.website || `https://google.com/search?q=${encodeURIComponent(c.nome || '')}`,
+            linkedin: c.linkedin || `https://linkedin.com/company/search?keywords=${encodeURIComponent(c.nome || '')}`,
+            dimensaoEconomica: c.dimensaoEconomica || 'Empresa de dimensão económica de relevo.',
+            sector: c.sector || 'indústria',
+            razaoCandidatura: c.razaoCandidatura || 'Grande volume de produtos e suportes com necessidade contínua de design de topo.',
+            pessoasRelevantes: Array.isArray(c.pessoasRelevantes) && c.pessoasRelevantes.length > 0
+              ? c.pessoasRelevantes.map((p: any) => ({
+                  nome: p.nome || 'Responsável de Marketing / RH',
+                  cargo: p.cargo || 'Direção',
+                  prioridade: p.prioridade || 1,
+                  linkedin: p.linkedin,
+                  email: p.email,
+                  verificado: !!p.verificado,
+                }))
+              : [
+                  {
+                    nome: 'Direção de Marketing & Comunicação',
+                    cargo: 'Diretor(a) de Marketing',
+                    prioridade: 1,
+                    verificado: false,
+                  },
+                ],
+            pesquisasGoogleSugeridas: Array.isArray(c.pesquisasGoogleSugeridas) && c.pesquisasGoogleSugeridas.length > 0
+              ? c.pesquisasGoogleSugeridas
+              : [
+                  `site:linkedin.com/in "${c.nome}" marketing`,
+                  `site:linkedin.com/in "${c.nome}" recursos humanos`,
+                  `site:linkedin.com/in "${c.nome}" director`,
+                ],
+            estado: 'novo',
+            dataEncontrado: new Date().toISOString().split('T')[0],
+          };
+        })
+      );
 
       const result = db.updateCompanies(newCompanies);
       return {
@@ -243,9 +256,16 @@ Responde APENAS em JSON no formato:
    */
   public async generateApplicationEmail(
     type: 'oferta' | 'espontanea',
-    item: JobOffer | SpontaneousCompany
+    item: JobOffer | SpontaneousCompany,
+    docIds?: string[]
   ): Promise<{ assunto: string; corpo: string; destinatario: string }> {
-    const docs = db.getData().documentos;
+    let docs = db.getData().documentos;
+    if (Array.isArray(docIds) && docIds.length > 0) {
+      const selected = docs.filter((d) => docIds.includes(d.id));
+      if (selected.length > 0) {
+        docs = selected;
+      }
+    }
     const candidateFactContext = docs.map((d) => `DOCUMENTO: ${d.nomeFicheiro}\n${d.conteudoTexto}`).join('\n\n');
 
     let recipient = '';
@@ -340,6 +360,18 @@ Daniel Rosa Amaral
 Designer Gráfico Sénior & Diretor de Arte
 Tel: +351 910 000 000 | LinkedIn: linkedin.com/in/danielrosaamaral
 Porto, Portugal`;
+
+      const emailObj = {
+        assunto: fallbackSubject,
+        corpo: fallbackBody,
+        dataGeracao: new Date().toISOString(),
+      };
+
+      if (type === 'oferta') {
+        db.updateOfferEmail(item.id, emailObj);
+      } else {
+        db.updateCompanyEmail(item.id, emailObj);
+      }
 
       return {
         assunto: fallbackSubject,

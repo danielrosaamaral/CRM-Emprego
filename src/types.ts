@@ -1,4 +1,5 @@
 export type OfferStatus = 'novo' | 'visto' | 'preparada' | 'enviado' | 'ignorado';
+export type GeographicScope = 'nacional' | 'internacional';
 
 export interface FonteUrl {
   portal: string;
@@ -12,6 +13,8 @@ export interface JobOffer {
   localizacao: string;
   distanciaKm: number;
   tempoCarroMin?: number;
+  pais?: string;
+  ambito?: GeographicScope;
   dataOferta: string;
   urlOferta: string;
   fontesUrls?: FonteUrl[];
@@ -34,6 +37,8 @@ export interface JobOffer {
   notas?: string;
   sector?: string;
   pesquisasGoogleSugeridas?: string[];
+  contacto?: string;
+  email?: string;
   emailPreparado?: {
     assunto: string;
     corpo: string;
@@ -52,6 +57,8 @@ export interface SpontaneousCompany {
   localizacao: string;
   distanciaKm: number;
   tempoDeslocacaoCarroMin: number; // real driving time
+  pais?: string;
+  ambito?: GeographicScope;
   nivelTransito: 'baixo' | 'moderado' | 'elevado';
   notasEstacionamento: string;
   website: string;

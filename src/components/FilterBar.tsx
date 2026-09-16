@@ -1,11 +1,13 @@
-import { RefreshCw, Search, SlidersHorizontal, Car, Navigation } from 'lucide-react';
+import { RefreshCw, Search, SlidersHorizontal, Car, Navigation, Globe, Compass } from 'lucide-react';
 import React from 'react';
-import { OfferStatus } from '../types';
+import { GeographicScope, OfferStatus } from '../types';
 
 interface FilterBarProps {
   mode: 'ofertas' | 'espontaneas';
   distanceKm: number;
   onDistanceChange: (val: number) => void;
+  geographicScope: GeographicScope;
+  onGeographicScopeChange: (scope: GeographicScope) => void;
   maxCarMinutes?: number;
   onMaxCarMinutesChange?: (val: number) => void;
   statusFilter: 'todos' | OfferStatus;
@@ -25,6 +27,8 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   mode,
   distanceKm,
   onDistanceChange,
+  geographicScope,
+  onGeographicScopeChange,
   maxCarMinutes = 10,
   onMaxCarMinutesChange,
   statusFilter,
@@ -39,33 +43,36 @@ export const FilterBar: React.FC<FilterBarProps> = ({
   geoMode,
   onGeoModeChange,
 }) => {
-  const isInternacional = geoMode === 'internacional';
+  const isNational = geographicScope === 'nacional';
   return (
     <div className="bg-neutral-900 border-b border-neutral-800 py-4 px-4 sm:px-6 lg:px-8">
       <div className="max-w-7xl mx-auto space-y-4">
         {/* Main Controls Row */}
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-          {/* Geo Mode + Distance Slider */}
+          {/* Geographic Scope Toggle + Distance Slider */}
           <div className="flex-1 max-w-xl">
-            {/* Geo Mode Toggle */}
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide">Âmbito:</span>
+              <span className="text-[11px] font-semibold text-neutral-400 uppercase tracking-wide">
+                Âmbito:
+              </span>
+
               <button
                 type="button"
-                onClick={() => onGeoModeChange('nacional')}
+                onClick={() => onGeographicScopeChange('nacional')}
                 className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors cursor-pointer ${
-                  !isInternacional
+                  isNational
                     ? 'bg-[#2563EB] text-white border-blue-500 font-medium shadow-xs shadow-blue-500/20'
                     : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:bg-neutral-700 hover:text-neutral-200'
                 }`}
               >
                 Nacional
               </button>
+
               <button
                 type="button"
-                onClick={() => onGeoModeChange('internacional')}
+                onClick={() => onGeographicScopeChange('internacional')}
                 className={`px-2.5 py-0.5 text-xs rounded-full border transition-colors cursor-pointer ${
-                  isInternacional
+                  !isNational
                     ? 'bg-[#2563EB] text-white border-blue-500 font-medium shadow-xs shadow-blue-500/20'
                     : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:bg-neutral-700 hover:text-neutral-200'
                 }`}
@@ -74,21 +81,30 @@ export const FilterBar: React.FC<FilterBarProps> = ({
               </button>
             </div>
 
-            {/* Distance slider — visible only in Nacional mode */}
-            {!isInternacional && (
+            {!isNational && (
+              <p className="text-xs text-neutral-400 italic mt-1">
+                Modo Internacional activo — filtragem por distância desactivada.
+              </p>
+            )}
+
+            {isNational && (
               <>
                 <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-300 uppercase tracking-wide">
                     <Navigation className="w-3.5 h-3.5 text-blue-400" />
                     <span>Raio Máximo de Distância (Filtro Mestre)</span>
                   </div>
+
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-neutral-800 text-blue-400 border border-neutral-700">
                       {distanceKm === 0 ? '< 1 km' : `${distanceKm} km`}
                     </span>
-                    <span className="text-[11px] text-neutral-400">a partir de {locationName}</span>
+                    <span className="text-[11px] text-neutral-400">
+                      a partir de {locationName}
+                    </span>
                   </div>
                 </div>
+
                 <div className="space-y-1">
                   <input
                     id="distance-slider"
@@ -100,45 +116,132 @@ export const FilterBar: React.FC<FilterBarProps> = ({
                     onChange={(e) => onDistanceChange(Number(e.target.value))}
                     className="w-full h-1.5 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-[#2563EB]"
                   />
+
                   <div className="flex justify-between text-[11px] font-mono text-neutral-400 px-0.5">
-                    <button type="button" onClick={() => onDistanceChange(5)}
-                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 5 ? 'font-bold text-blue-400 underline' : ''}`}>
-                      [ 5 km ]
-                    </button>
-                    <button type="button" onClick={() => onDistanceChange(20)}
-                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 20 ? 'font-bold text-blue-400 underline' : ''}`}>
-                      [ 20 km ]
-                    </button>
-                    <button type="button" onClick={() => onDistanceChange(50)}
-                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 50 ? 'font-bold text-blue-400 underline' : ''}`}>
-                      [ 50 km ]
-                    </button>
-                    <button type="button" onClick={() => onDistanceChange(100)}
-                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 100 ? 'font-bold text-blue-400 underline' : ''}`}>
-                      [ 100 km ]
-                    </button>
-                    <button type="button" onClick={() => onDistanceChange(300)}
-                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 300 ? 'font-bold text-blue-400 underline' : ''}`}>
-                      [ 300 km ]
-                    </button>
-                    <button type="button" onClick={() => onDistanceChange(600)}
-                      className={`hover:text-blue-400 cursor-pointer ${distanceKm === 600 ? 'font-bold text-blue-400 underline' : ''}`}>
-                      [ Todo o País ]
-                    </button>
+                    {[5, 20, 50, 100, 300, 600].map((value) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => onDistanceChange(value)}
+                        className={`hover:text-blue-400 cursor-pointer ${
+                          distanceKm === value
+                            ? 'font-bold text-blue-400 underline'
+                            : ''
+                        }`}
+                      >
+                        {value === 600 ? '[ Todo o País ]' : `[ ${value} km ]`}
+                      </button>
+                    ))}
                   </div>
                 </div>
               </>
             )}
-
-            {isInternacional && (
-              <p className="text-xs text-neutral-400 italic mt-1">
-                Modo Internacional activo — filtragem por distância desactivada.
-              </p>
-            )}
+          </div>
           </div>
 
+          {/* Master Distance Slider (Active in National Mode) */}
+          {isNational ? (
+            <div className="flex-1 max-w-xl">
+              <div className="flex items-center justify-between mb-1.5">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-800 uppercase tracking-wide">
+                  <Navigation className="w-3.5 h-3.5 text-neutral-500" />
+                  <span>Raio Máximo de Distância</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-mono font-medium px-2 py-0.5 rounded bg-neutral-100 text-neutral-900 border border-neutral-200">
+                    {distanceKm === 0
+                      ? '0 km (Morada-base)'
+                      : distanceKm >= 600
+                      ? '600 km (Cobertura Nacional)'
+                      : `${distanceKm} km`}
+                  </span>
+                  <span className="text-[11px] text-neutral-400">a partir de {locationName}</span>
+                </div>
+              </div>
+
+              {/* Slider with preset tick marks */}
+              <div className="space-y-1">
+                <input
+                  id="distance-slider"
+                  type="range"
+                  min="0"
+                  max="600"
+                  step="5"
+                  value={distanceKm}
+                  onChange={(e) => onDistanceChange(Number(e.target.value))}
+                  className="w-full h-1.5 bg-neutral-200 rounded-lg appearance-none cursor-pointer accent-[#1D1D1F]"
+                />
+                <div className="flex justify-between text-[11px] font-mono text-neutral-500 px-0.5">
+                  <button
+                    type="button"
+                    onClick={() => onDistanceChange(0)}
+                    className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 0 ? 'font-bold text-neutral-950 underline' : ''}`}
+                    title="0 km: Abrangência mínima centrada na morada-base"
+                  >
+                    [ 0 km ]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDistanceChange(10)}
+                    className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 10 ? 'font-bold text-neutral-950 underline' : ''}`}
+                  >
+                    [ 10 km ]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDistanceChange(30)}
+                    className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 30 ? 'font-bold text-neutral-950 underline' : ''}`}
+                  >
+                    [ 30 km ]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDistanceChange(75)}
+                    className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 75 ? 'font-bold text-neutral-950 underline' : ''}`}
+                  >
+                    [ 75 km ]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDistanceChange(150)}
+                    className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 150 ? 'font-bold text-neutral-950 underline' : ''}`}
+                  >
+                    [ 150 km ]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDistanceChange(350)}
+                    className={`hover:text-neutral-900 cursor-pointer ${distanceKm === 350 ? 'font-bold text-neutral-950 underline' : ''}`}
+                  >
+                    [ 350 km ]
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDistanceChange(600)}
+                    className={`hover:text-neutral-900 cursor-pointer ${distanceKm >= 600 ? 'font-bold text-neutral-950 underline' : ''}`}
+                    title="600 km: Todo o território nacional"
+                  >
+                    [ Nacional ]
+                  </button>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 max-w-xl flex items-center gap-3 p-3 bg-neutral-50 rounded-lg border border-neutral-200">
+              <Globe className="w-5 h-5 text-neutral-700 shrink-0" />
+              <div>
+                <p className="text-xs font-semibold text-neutral-900">
+                  Modo Internacional / Oportunidades Remotas Globais
+                </p>
+                <p className="text-[11px] text-neutral-500">
+                  A filtrar oportunidades fora de Portugal ou sem limitação geográfica territorial.
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Drive Time Filter (Especially relevant for Spontaneous Prospects) */}
-          {mode === 'espontaneas' && onMaxCarMinutesChange && (
+          {mode === 'espontaneas' && isNational && onMaxCarMinutesChange && (
             <div className="lg:w-64 border-l lg:border-neutral-800 lg:pl-4">
               <div className="flex items-center justify-between mb-1.5">
                 <div className="flex items-center gap-1.5 text-xs font-semibold text-neutral-300 uppercase tracking-wide">

@@ -12,8 +12,8 @@ export interface ExecutionResult {
 }
 
 export class MultiEngineRouter {
-  // Simple in-memory response cache to avoid repeated calls
-  private responseCache = new Map<string, string>();
+  // Simple in-memory response cache storing text and actual engineUsed to avoid repeated calls
+  private responseCache = new Map<string, { text: string; engineUsed: EngineType }>();
 
   public async executeTask(
     task: EngineTask,
@@ -24,9 +24,10 @@ export class MultiEngineRouter {
     // Generate cache key
     const cacheKey = `${task}:${prompt}`;
     if (this.responseCache.has(cacheKey)) {
+      const cached = this.responseCache.get(cacheKey)!;
       return {
-        text: this.responseCache.get(cacheKey)!,
-        engineUsed: 'gemini',
+        text: cached.text,
+        engineUsed: cached.engineUsed,
         attempts: [],
       };
     }
@@ -82,8 +83,8 @@ export class MultiEngineRouter {
         }
 
         if (text && text.trim().length > 0) {
-          // Cache successful answer
-          this.responseCache.set(cacheKey, text);
+          // Cache successful answer with real engine used
+          this.responseCache.set(cacheKey, { text, engineUsed: engineId });
           return {
             text,
             engineUsed: engineId,

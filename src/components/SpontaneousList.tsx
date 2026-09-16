@@ -14,6 +14,8 @@ import {
   ParkingCircle,
   AlertCircle,
   Check,
+  Edit2,
+  X,
 } from 'lucide-react';
 import React, { useState } from 'react';
 import { OfferStatus, SpontaneousCompany } from '../types';
@@ -24,6 +26,7 @@ interface SpontaneousListProps {
   onOpenEmail: (company: SpontaneousCompany) => void;
   onUpdateStatus: (id: string, status: OfferStatus) => void;
   onOpenGoogleSearch: (query: string) => void;
+  onUpdateCompany?: (id: string, updates: Partial<SpontaneousCompany>) => Promise<SpontaneousCompany>;
 }
 
 export const SpontaneousList: React.FC<SpontaneousListProps> = ({
@@ -31,8 +34,112 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
   onOpenEmail,
   onUpdateStatus,
   onOpenGoogleSearch,
+  onUpdateCompany,
 }) => {
   const [copiedQuery, setCopiedQuery] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState({
+    nome: '',
+    localizacao: '',
+    distanciaKm: 5,
+    tempoDeslocacaoCarroMin: 5,
+    website: '',
+    linkedin: '',
+    dimensaoEconomica: '',
+    sector: 'indústria' as SpontaneousCompany['sector'],
+    notasEstacionamento: '',
+    razaoCandidatura: '',
+    contactoNome: '',
+    contactoEmail: '',
+  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  const handleStartEdit = (company: SpontaneousCompany) => {
+    setEditingId(company.id);
+    setEditForm({
+      nome: company.nome || '',
+      localizacao: company.localizacao || '',
+      distanciaKm: company.distanciaKm ?? 5,
+      tempoDeslocacaoCarroMin: company.tempoDeslocacaoCarroMin ?? 5,
+      website: company.website || '',
+      linkedin: company.linkedin || '',
+      dimensaoEconomica: company.dimensaoEconomica || '',
+      sector: company.sector || 'indústria',
+      notasEstacionamento: company.notasEstacionamento || '',
+      razaoCandidatura: company.razaoCandidatura || '',
+      contactoNome: company.pessoasRelevantes?.[0]?.nome || '',
+      contactoEmail: company.pessoasRelevantes?.[0]?.email || '',
+    });
+    setSaveError(null);
+  };
+
+  const handleCancelEdit = () => {
+    setEditingId(null);
+    setSaveError(null);
+  };
+
+  const handleSaveEdit = async (company: SpontaneousCompany) => {
+    if (!editForm.nome.trim()) {
+      setSaveError('O nome da empresa é obrigatório.');
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+      setSaveError(null);
+
+      const updates: Partial<SpontaneousCompany> = {
+        nome: editForm.nome.trim(),
+        localizacao: editForm.localizacao.trim(),
+        distanciaKm: Number(editForm.distanciaKm) || company.distanciaKm,
+        tempoDeslocacaoCarroMin: Number(editForm.tempoDeslocacaoCarroMin) || company.tempoDeslocacaoCarroMin,
+        website: editForm.website.trim(),
+        linkedin: editForm.linkedin.trim(),
+        dimensaoEconomica: editForm.dimensaoEconomica.trim(),
+        sector: editForm.sector,
+        notasEstacionamento: editForm.notasEstacionamento.trim(),
+        razaoCandidatura: editForm.razaoCandidatura.trim(),
+      };
+
+      if (editForm.contactoEmail || editForm.contactoNome) {
+        const currentPersons = company.pessoasRelevantes ? [...company.pessoasRelevantes] : [];
+        if (currentPersons.length > 0) {
+          currentPersons[0] = {
+            ...currentPersons[0],
+            nome: editForm.contactoNome.trim() || currentPersons[0].nome,
+            email: editForm.contactoEmail.trim() || undefined,
+          };
+        } else {
+          currentPersons.push({
+            nome: editForm.contactoNome.trim() || 'Contacto',
+            cargo: 'Recrutamento / Direção',
+            prioridade: 1,
+            email: editForm.contactoEmail.trim() || undefined,
+            verificado: false,
+          });
+        }
+        updates.pessoasRelevantes = currentPersons;
+      }
+
+      if (onUpdateCompany) {
+        await onUpdateCompany(company.id, updates);
+      } else {
+        const res = await fetch(`/api/companies/${company.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(updates),
+        });
+        if (!res.ok) throw new Error('Falha ao guardar alterações');
+      }
+
+      setEditingId(null);
+    } catch (err: any) {
+      setSaveError(err?.message || 'Erro ao guardar alterações');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleCopy = (query: string) => {
     navigator.clipboard.writeText(query);
@@ -54,23 +161,212 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
   }
 
   return (
-    <div className="space-y-3.5">
+    <div className="space-y-4">
       {companies.map((company) => {
         const statusStyle = getStatusBadgeStyle(company.estado);
         const isPriorityDrive = company.tempoDeslocacaoCarroMin <= 5;
+        const isEditing = editingId === company.id;
 
         return (
           <article
             key={company.id}
-            className="bg-neutral-900/90 border border-neutral-800 rounded-lg p-5 transition-all hover:border-neutral-700 shadow-sm"
+            className={`bg-neutral-900/90 border ${
+              isEditing ? 'border-blue-500 ring-1 ring-blue-500/20' : 'border-neutral-800'
+            } rounded-lg p-5 transition-all hover:border-neutral-700 shadow-sm`}
           >
+            {isEditing ? (
+              /* Inline Edit Form for Spontaneous Company */
+              <div className="space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-neutral-800">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-base text-neutral-100">
+                      Editar Candidatura Espontânea
+                    </span>
+                    <span className="text-[10px] font-mono text-neutral-400 bg-neutral-800 px-1.5 py-0.5 rounded border border-neutral-700">
+                      ID: {company.id}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleCancelEdit}
+                      disabled={isSaving}
+                      className="px-3 py-1.5 text-xs font-medium text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors cursor-pointer flex items-center gap-1.5"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                      <span>Cancelar</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSaveEdit(company)}
+                      disabled={isSaving}
+                      className="px-3.5 py-1.5 text-xs font-medium text-white bg-blue-600 hover:bg-blue-500 rounded transition-colors cursor-pointer flex items-center gap-1.5 shadow-sm"
+                    >
+                      {isSaving ? (
+                        <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      ) : (
+                        <Check className="w-3.5 h-3.5" />
+                      )}
+                      <span>Guardar</span>
+                    </button>
+                  </div>
+                </div>
+
+                {saveError && (
+                    <div className="p-2.5 text-xs text-rose-200 bg-rose-950/60 border border-rose-800 rounded">
+                    {saveError}
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Nome da Empresa *
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.nome}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, nome: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500"
+                      placeholder="Nome da empresa"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Localização
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.localizacao}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, localizacao: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500"
+                      placeholder="Ex: Maia, Zona Industrial"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Website Oficial
+                    </label>
+                    <input
+                      type="url"
+                      value={editForm.website}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, website: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500"
+                      placeholder="https://exemplo.pt"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      LinkedIn da Empresa
+                    </label>
+                    <input
+                      type="url"
+                      value={editForm.linkedin}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, linkedin: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500"
+                      placeholder="https://linkedin.com/company/exemplo"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Dimensão Económica
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.dimensaoEconomica}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, dimensaoEconomica: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500"
+                      placeholder="Ex: Faturação > €10M, 80 colaboradores"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Sector
+                    </label>
+                    <select
+                      value={editForm.sector}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, sector: e.target.value as any }))}
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500"
+                    >
+                      <option value="indústria">Indústria</option>
+                      <option value="alimentar">Alimentar</option>
+                      <option value="distribuição">Distribuição</option>
+                      <option value="tecnologia">Tecnologia</option>
+                      <option value="farmacêutico">Farmacêutico</option>
+                      <option value="serviços">Serviços</option>
+                      <option value="produção">Produção</option>
+                      <option value="sustentável">Sustentável</option>
+                      <option value="outro">Outro</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Contacto Relevante (Nome)
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.contactoNome}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, contactoNome: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500"
+                      placeholder="Ex: Dr. António Costa"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      E-mail de Contacto
+                    </label>
+                    <input
+                      type="email"
+                      value={editForm.contactoEmail}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, contactoEmail: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500"
+                      placeholder="geral@exemplo.pt"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Notas de Estacionamento / Acesso
+                    </label>
+                    <input
+                      type="text"
+                      value={editForm.notasEstacionamento}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, notasEstacionamento: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-white border border-neutral-300 rounded text-neutral-900 focus:outline-none focus:border-neutral-900"
+                      placeholder="Ex: Estacionamento privativo no piso térreo"
+                    />
+                  </div>
+
+                  <div className="sm:col-span-2">
+                    <label className="block text-[11px] font-mono uppercase tracking-wider text-neutral-500 mb-1">
+                      Razão Estratégica para Candidatura
+                    </label>
+                    <textarea
+                      rows={3}
+                      value={editForm.razaoCandidatura}
+                      onChange={(e) => setEditForm((prev) => ({ ...prev, razaoCandidatura: e.target.value }))}
+                      className="w-full px-2.5 py-1.5 bg-neutral-800 border border-neutral-700 rounded text-neutral-100 focus:outline-none focus:border-blue-500 resize-y"
+                      placeholder="Razão estratégica e alinhamento de perfil..."
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
             {/* Header: Company Name, Economic Scale & Driving Time */}
             <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 pb-3 border-b border-neutral-800">
               <div className="space-y-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <h2 className="text-base font-semibold text-neutral-100 tracking-tight">
+                  <h3 className="text-lg font-semibold text-neutral-100 tracking-tight">
                     {company.nome}
-                  </h2>
+                  </h3>
                   <span className="text-[10px] uppercase font-mono tracking-wider px-2 py-0.5 rounded bg-neutral-800 text-neutral-300 border border-neutral-700">
                     {company.sector}
                   </span>
@@ -91,7 +387,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                     <MapPin className="w-3.5 h-3.5 text-blue-400" />
                     {company.localizacao} ({company.distanciaKm} km)
                   </span>
-                  <span className="flex items-center gap-1 text-neutral-400 font-mono">
+                  <span className="flex items-center gap-1 text-neutral-300 font-mono">
                     <TrendingUp className="w-3.5 h-3.5 text-neutral-500" />
                     {company.dimensaoEconomica}
                   </span>
@@ -101,17 +397,17 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
               {/* Driving Time & Commute Indicator */}
               <div className="flex sm:flex-col items-start sm:items-end gap-1.5 shrink-0">
                 <div
-                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium border ${
+                  className={`flex items-center gap-1.5 px-2.5 py-1 rounded text-xs font-mono font-medium ${
                     isPriorityDrive
-                      ? 'bg-emerald-950/60 text-emerald-300 border-emerald-800/60'
-                      : 'bg-neutral-800 text-neutral-300 border-neutral-700'
+                      ? 'bg-emerald-900 text-white'
+                      : 'bg-neutral-800 text-white'
                   }`}
                 >
-                  <Car className="w-3.5 h-3.5 text-emerald-400" />
+                  <Car className="w-3.5 h-3.5 text-emerald-300" />
                   <span>~{company.tempoDeslocacaoCarroMin} min de carro</span>
                 </div>
                 {isPriorityDrive && (
-                  <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/40 px-1.5 py-0.5 rounded border border-emerald-800/50">
+                  <span className="text-[10px] font-mono text-emerald-300 bg-emerald-950/40 px-1.5 py-0.2 rounded border border-emerald-800/50">
                     ★ Prioridade Máxima (≤ 5 min)
                   </span>
                 )}
@@ -140,16 +436,16 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                 <p className="text-neutral-300 leading-relaxed text-xs">
                   {company.razaoCandidatura}
                 </p>
-                <p className="text-[11px] text-neutral-500 font-mono pt-1">
+                <p className="text-[11px] text-neutral-400 font-mono pt-1">
                   Encontrada no sistema: {formatDatePt(company.dataEncontrado)}
                 </p>
               </div>
 
               {/* Right Column: Relevant Key Decision Makers */}
               <div className="md:col-span-5 bg-neutral-800/70 rounded-md p-3 border border-neutral-700/60 space-y-2">
-                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-400">
+                <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-500">
                   <span>Pessoas de Contacto Relevantes</span>
-                  <span className="text-[10px] text-neutral-500">Ordem de Prioridade</span>
+                  <span className="text-[10px] text-neutral-400">Ordem de Prioridade</span>
                 </div>
 
                 <div className="space-y-2">
@@ -169,7 +465,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                       </div>
                       <p className="text-[11px] text-neutral-400">
                         {pessoa.cargo}
-                        <span className="text-neutral-500 ml-1 text-[10px] font-mono">
+                        <span className="text-neutral-400 ml-1 text-[10px] font-mono">
                           (P{pessoa.prioridade})
                         </span>
                       </p>
@@ -195,7 +491,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                 {company.pesquisasGoogleSugeridas && company.pesquisasGoogleSugeridas.length > 0 && (
                   <div className="pt-2 border-t border-neutral-700/60">
                     <div className="text-[10px] font-mono uppercase text-neutral-400 mb-1 flex items-center gap-1">
-                      <Search className="w-3 h-3 text-blue-400" />
+                      <Search className="w-3 h-3" />
                       <span>Pesquisas Google LinkedIn (1-clique para copiar):</span>
                     </div>
                     <div className="space-y-1">
@@ -213,20 +509,19 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                               title="Copiar termo de pesquisa"
                             >
                               {copiedQuery === query ? (
-                                <Check className="w-3 h-3 text-emerald-400" />
+                                <Check className="w-3 h-3 text-emerald-600" />
                               ) : (
                                 <Copy className="w-3 h-3" />
                               )}
                             </button>
-                            <a
-                              href={`https://www.google.com/search?q=${encodeURIComponent(query)}`}
-                              target="_blank"
-                              rel="noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => onOpenGoogleSearch(query)}
                               className="p-1 text-blue-400 hover:text-blue-300 cursor-pointer"
-                              title="Abrir pesquisa no Google em nova tab"
+                              title="Abrir pesquisa no Google"
                             >
                               <ExternalLink className="w-3 h-3" />
-                            </a>
+                            </button>
                           </div>
                         </div>
                       ))}
@@ -239,7 +534,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
             {/* Footer Row: External Links & Primary Actions */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-800">
               {/* External Links */}
-              <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-400">
+              <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
                 {company.website && (
                   <a
                     href={company.website}
@@ -256,7 +551,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                     href={company.linkedin}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1 text-neutral-400 hover:text-neutral-200"
+                    className="inline-flex items-center gap-1 text-neutral-300 hover:text-neutral-100"
                   >
                     <span>LinkedIn da Empresa</span>
                   </a>
@@ -284,24 +579,37 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                   <button
                     type="button"
                     onClick={() => onUpdateStatus(company.id, 'enviado')}
-                    className="px-2.5 py-1 text-xs border border-emerald-700/60 text-emerald-300 bg-emerald-950/40 hover:bg-emerald-950/80 rounded transition-colors cursor-pointer flex items-center gap-1"
+                    className="px-2.5 py-1 text-xs border border-emerald-800 text-emerald-300 bg-emerald-950/60 hover:bg-emerald-900 rounded transition-colors cursor-pointer flex items-center gap-1"
                   >
                     <CheckCircle className="w-3 h-3" />
                     <span>Marcar Enviado</span>
                   </button>
                 )}
 
+                {/* Edit details button */}
+                <button
+                  type="button"
+                  onClick={() => handleStartEdit(company)}
+                  className="px-2.5 py-1 text-xs border border-neutral-700 text-neutral-300 bg-neutral-800 hover:bg-neutral-700 rounded transition-colors cursor-pointer flex items-center gap-1"
+                  aria-label="Editar registo da empresa"
+                >
+                  <Edit2 className="w-3 h-3" />
+                  <span>Editar</span>
+                </button>
+
                 {/* Prepare Email button */}
                 <button
                   type="button"
                   onClick={() => onOpenEmail(company)}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-[#2563EB] hover:bg-blue-600 text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-sm shadow-blue-500/20"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 bg-blue-600 hover:bg-blue-500 text-white text-xs font-medium rounded transition-colors cursor-pointer shadow-sm"
                 >
                   <Mail className="w-3.5 h-3.5" />
                   <span>E-mail</span>
                 </button>
               </div>
             </div>
+            </>
+            )}
           </article>
         );
       })}

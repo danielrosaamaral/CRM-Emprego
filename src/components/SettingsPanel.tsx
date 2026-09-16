@@ -294,11 +294,15 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
               onChange={(e) => setDistanciaPadrao(Number(e.target.value))}
               className="w-full px-3 py-2 bg-neutral-800 border border-neutral-700 rounded-md focus:outline-none focus:border-[#2563EB] text-neutral-100"
             >
+              <option value={0}>0 km (Morada-base / Imediato)</option>
               <option value={5}>5 km</option>
               <option value={10}>10 km</option>
               <option value={20}>20 km</option>
               <option value={35}>35 km</option>
               <option value={50}>50 km</option>
+              <option value={100}>100 km</option>
+              <option value={250}>250 km</option>
+              <option value={600}>600 km (Cobertura Nacional Total)</option>
             </select>
           </div>
 

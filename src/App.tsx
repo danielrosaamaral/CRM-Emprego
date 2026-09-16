@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { FilterBar } from './components/FilterBar';
 import { Header } from './components/Header';
 import { JobOffersList } from './components/JobOffersList';
@@ -10,6 +10,7 @@ import { EmailModal } from './components/EmailModal';
 import {
   AppDataResponse,
   AppSettings,
+  GeographicScope,
   JobOffer,
   KnowledgeDocument,
   OfferStatus,
@@ -20,7 +21,7 @@ import {
 export default function App() {
   const [activeTab, setActiveTab] = useState<'ofertas' | 'espontaneas' | 'perfil' | 'definicoes'>('ofertas');
   const [distanceKm, setDistanceKm] = useState<number>(10);
-  const [geoMode, setGeoMode] = useState<'nacional' | 'internacional'>('nacional');
+  const [geographicScope, setGeographicScope] = useState<GeographicScope>('nacional');
   const [maxCarMinutes, setMaxCarMinutes] = useState<number>(10);
   const [statusFilter, setStatusFilter] = useState<'todos' | OfferStatus>('todos');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -28,6 +29,7 @@ export default function App() {
   const [offers, setOffers] = useState<JobOffer[]>([]);
   const [companies, setCompanies] = useState<SpontaneousCompany[]>([]);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
+  const [selectedDocIds, setSelectedDocIds] = useState<string[]>([]);
   const [settings, setSettings] = useState<AppSettings | null>(null);
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -82,6 +84,42 @@ export default function App() {
   const showNotice = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setNotification({ message, type });
     setTimeout(() => setNotification(null), 4000);
+  };
+
+  // Debounced persistence for geographic distance slider
+  const distanceDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleDistanceChange = (val: number) => {
+    setDistanceKm(val);
+    if (distanceDebounceRef.current) {
+      clearTimeout(distanceDebounceRef.current);
+    }
+    distanceDebounceRef.current = setTimeout(async () => {
+      try {
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ distanciaKmPadrao: val }),
+        });
+        setSettings((prev) => (prev ? { ...prev, distanciaKmPadrao: val } : prev));
+      } catch (err) {
+        console.error('Erro ao guardar distância predefinida:', err);
+      }
+    }, 400);
+  };
+
+  const handleMaxCarMinutesChange = async (val: number) => {
+    setMaxCarMinutes(val);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tempoCarroMaxMin: val }),
+      });
+      setSettings((prev) => (prev ? { ...prev, tempoCarroMaxMin: val } : prev));
+    } catch (err) {
+      console.error('Erro ao guardar tempo de carro predefinido:', err);
+    }
   };
 
   // Refresh trigger (searches for new items and deduplicates)
@@ -166,13 +204,61 @@ export default function App() {
     }
   };
 
+  // Inline update of offer details
+  const handleUpdateOffer = async (id: string, updates: Partial<JobOffer>): Promise<JobOffer> => {
+    try {
+      const res = await fetch(`/api/offers/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error('Falha ao atualizar oferta');
+      const data = await res.json();
+      const updatedOffer: JobOffer = data.oferta;
+
+      setOffers((prev) =>
+        prev.map((o) => (o.id === id ? { ...o, ...updatedOffer } : o))
+      );
+      showNotice('Oferta atualizada com sucesso.', 'success');
+      return updatedOffer;
+    } catch (err: any) {
+      console.error('Erro ao atualizar oferta:', err);
+      showNotice('Erro ao atualizar oferta na base de dados.', 'error');
+      throw err;
+    }
+  };
+
+  // Inline update of company details
+  const handleUpdateCompany = async (id: string, updates: Partial<SpontaneousCompany>): Promise<SpontaneousCompany> => {
+    try {
+      const res = await fetch(`/api/companies/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error('Falha ao atualizar candidatura espontânea');
+      const data = await res.json();
+      const updatedCompany: SpontaneousCompany = data.empresa;
+
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, ...updatedCompany } : c))
+      );
+      showNotice('Candidatura espontânea atualizada com sucesso.', 'success');
+      return updatedCompany;
+    } catch (err: any) {
+      console.error('Erro ao atualizar candidatura espontânea:', err);
+      showNotice('Erro ao atualizar candidatura espontânea na base de dados.', 'error');
+      throw err;
+    }
+  };
+
   // Open Email Preparer Modal
   const handleOpenEmail = async (item: JobOffer | SpontaneousCompany) => {
     const isOffer = 'empresa' in item;
     const type = isOffer ? 'oferta' : 'espontanea';
 
-    // If item already has a prepared email, show it; otherwise call generator
-    const existingEmail = item.emailGerado;
+    // If item already has a prepared email (emailPreparado or emailGerado), show it; otherwise call generator
+    const existingEmail = item.emailPreparado || item.emailGerado;
     let initialRecipient = '';
     if (isOffer) {
       initialRecipient = (item as JobOffer).contactoRelevante?.email || '';
@@ -197,7 +283,11 @@ export default function App() {
       const res = await fetch('/api/email/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type, item }),
+        body: JSON.stringify({
+          type,
+          item,
+          docIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
+        }),
       });
       if (!res.ok) throw new Error('Falha ao gerar e-mail');
       const email = await res.json();
@@ -210,7 +300,13 @@ export default function App() {
         destinatario: email.destinatario || initialRecipient,
       });
 
-      // Update state in memory
+      // Update state in memory (both emailPreparado and emailGerado for compatibility)
+      const emailRecord = {
+        assunto: email.assunto,
+        corpo: email.corpo,
+        dataGeracao: new Date().toISOString(),
+      };
+
       if (isOffer) {
         setOffers((prev) =>
           prev.map((o) =>
@@ -218,11 +314,8 @@ export default function App() {
               ? {
                   ...o,
                   estado: o.estado === 'novo' ? 'preparada' : o.estado,
-                  emailGerado: {
-                    assunto: email.assunto,
-                    corpo: email.corpo,
-                    dataGeracao: new Date().toISOString(),
-                  },
+                  emailPreparado: emailRecord,
+                  emailGerado: emailRecord,
                 }
               : o
           )
@@ -234,11 +327,8 @@ export default function App() {
               ? {
                   ...c,
                   estado: c.estado === 'novo' ? 'preparada' : c.estado,
-                  emailGerado: {
-                    assunto: email.assunto,
-                    corpo: email.corpo,
-                    dataGeracao: new Date().toISOString(),
-                  },
+                  emailPreparado: emailRecord,
+                  emailGerado: emailRecord,
                 }
               : c
           )
@@ -261,10 +351,41 @@ export default function App() {
       body: JSON.stringify({
         type: selectedEmailItem.type,
         item: selectedEmailItem.item,
+        docIds: selectedDocIds.length > 0 ? selectedDocIds : undefined,
       }),
     });
     if (!res.ok) throw new Error('Erro ao regenerar');
     return await res.json();
+  };
+
+  // Selective document selection handlers
+  const handleToggleSelectDoc = (id: string) => {
+    setSelectedDocIds((prev) =>
+      prev.includes(id) ? prev.filter((docId) => docId !== id) : [...prev, id]
+    );
+  };
+
+  const handleSelectAllDocs = (selectAll: boolean) => {
+    if (selectAll) {
+      setSelectedDocIds(documents.map((d) => d.id));
+    } else {
+      setSelectedDocIds([]);
+    }
+  };
+
+  // Delete document with server synchronization
+  const handleDeleteDocument = async (id: string) => {
+    try {
+      const res = await fetch(`/api/knowledge/${id}`, { method: 'DELETE' });
+      if (!res.ok) throw new Error('Erro ao eliminar documento no servidor');
+      const data = await res.json();
+      setDocuments(data.todosDocumentos || []);
+      setSelectedDocIds((prev) => prev.filter((docId) => docId !== id));
+      showNotice('Documento eliminado da base de conhecimento com sucesso.', 'success');
+    } catch (err: any) {
+      console.error('Erro ao eliminar documento:', err);
+      showNotice(err?.message || 'Erro ao eliminar documento.', 'error');
+    }
   };
 
   // Upload CV or Portfolio
@@ -273,18 +394,41 @@ export default function App() {
       setIsUploading(true);
       showNotice(`A carregar e extrair ${file.name}...`, 'info');
 
-      // Read content as text or base64
-      const textContent = await file.text();
+      const isPdf = file.name.toLowerCase().endsWith('.pdf') || file.type === 'application/pdf';
+      let requestBody: {
+        tipo: 'cv' | 'portfolio';
+        nomeFicheiro: string;
+        conteudoTexto?: string;
+        conteudoBase64?: string;
+        tamanhoBytes: number;
+      } = {
+        tipo,
+        nomeFicheiro: file.name,
+        tamanhoBytes: file.size,
+      };
+
+      if (isPdf) {
+        // Binary-safe Base64 read for PDF to preserve binary streams for extraction
+        const base64Data = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            const commaIndex = result.indexOf(',');
+            resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result);
+          };
+          reader.onerror = (error) => reject(error);
+          reader.readAsDataURL(file);
+        });
+        requestBody.conteudoBase64 = base64Data;
+      } else {
+        const textContent = await file.text();
+        requestBody.conteudoTexto = textContent || `Ficheiro ${file.name} carregado com sucesso.`;
+      }
 
       const res = await fetch('/api/knowledge/upload', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tipo,
-          nomeFicheiro: file.name,
-          conteudoTexto: textContent || `Ficheiro ${file.name} carregado com sucesso.`,
-          tamanhoBytes: file.size,
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       if (!res.ok) throw new Error('Erro ao indexar ficheiro no servidor');
@@ -297,11 +441,15 @@ export default function App() {
   };
 
   // Recall question test bench
-  const handleRecallQuestion = async (pergunta: string): Promise<RecallResult> => {
+  const handleRecallQuestion = async (pergunta: string, docIds?: string[]): Promise<RecallResult> => {
+    const targetDocIds = docIds && docIds.length > 0 ? docIds : (selectedDocIds.length > 0 ? selectedDocIds : undefined);
     const res = await fetch('/api/knowledge/recall', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pergunta }),
+      body: JSON.stringify({
+        pergunta,
+        docIds: targetDocIds,
+      }),
     });
     if (!res.ok) throw new Error('Erro na consulta de conhecimento');
     return await res.json();
@@ -317,6 +465,12 @@ export default function App() {
     if (!res.ok) throw new Error('Falha ao guardar definições');
     const data = await res.json();
     setSettings(data.definicoes);
+    if (data.data?.ofertas) {
+      setOffers(data.data.ofertas);
+    }
+    if (data.data?.empresas) {
+      setCompanies(data.data.empresas);
+    }
     showNotice('Definições atualizadas com sucesso.', 'success');
   };
 
@@ -342,16 +496,26 @@ export default function App() {
     return { imported: data.imported, total: data.total };
   };
 
-  // Filtered Job Offers based on geo mode, master distance slider and status
+   // Filtered Job Offers based on geographic scope, master distance slider and status
   const filteredOffers = useMemo(() => {
-    const list = offers.filter((o) => {
-      // Geo mode filter
-      if (geoMode === 'internacional') {
-        if (!o.isInternacional) return false;
+    return offers.filter((o) => {
+      // Geographic scope filter: Nacional vs Internacional
+      const isOfferIntl =
+        o.ambito === 'internacional' ||
+        (o.pais && o.pais.toLowerCase() !== 'portugal');
+
+      if (geographicScope === 'internacional') {
+        if (!isOfferIntl) return false;
       } else {
-        // Nacional: skip international offers; apply distance filter
-        if (o.isInternacional) return false;
-        if (typeof o.distanciaKm === 'number' && distanceKm > 0 && o.distanciaKm > distanceKm) return false;
+        // Mode 'nacional': ignore international offers
+        if (isOfferIntl) return false;
+
+        // Distance filter: master slider from 0 km (immediate base location) up to 600 km (national)
+        if (distanceKm === 0) {
+          if (o.distanciaKm > 1.0) return false;
+        } else if (distanceKm < 600) {
+          if (o.distanciaKm > distanceKm) return false;
+        }
       }
 
       // Status filter
@@ -369,48 +533,104 @@ export default function App() {
 
       return true;
     });
-
     const ordenacao = settings?.ordenacaoPadrao || 'recentes';
 
     return list.sort((a, b) => {
       if (ordenacao === 'proximos') {
-        const distA = typeof a.distanciaKm === 'number' && !isNaN(a.distanciaKm) ? a.distanciaKm : Number.POSITIVE_INFINITY;
-        const distB = typeof b.distanciaKm === 'number' && !isNaN(b.distanciaKm) ? b.distanciaKm : Number.POSITIVE_INFINITY;
+        const distA =
+          typeof a.distanciaKm === 'number' && !isNaN(a.distanciaKm)
+            ? a.distanciaKm
+            : Number.POSITIVE_INFINITY;
+        const distB =
+          typeof b.distanciaKm === 'number' && !isNaN(b.distanciaKm)
+            ? b.distanciaKm
+            : Number.POSITIVE_INFINITY;
+
         if (distA !== distB) {
           return distA - distB;
         }
-        // Desempate: mais recentes primeiro
-        const timeA = a.dataOferta || a.dataEncontrado ? new Date(a.dataOferta || a.dataEncontrado).getTime() || 0 : 0;
-        const timeB = b.dataOferta || b.dataEncontrado ? new Date(b.dataOferta || b.dataEncontrado).getTime() || 0 : 0;
+
+        const timeA =
+          a.dataOferta || a.dataEncontrado
+            ? new Date(a.dataOferta || a.dataEncontrado).getTime() || 0
+            : 0;
+        const timeB =
+          b.dataOferta || b.dataEncontrado
+            ? new Date(b.dataOferta || b.dataEncontrado).getTime() || 0
+            : 0;
+
         return timeB - timeA;
       } else {
-        // 'recentes' (por defeito)
-        const timeA = a.dataOferta || a.dataEncontrado ? new Date(a.dataOferta || a.dataEncontrado).getTime() || 0 : 0;
-        const timeB = b.dataOferta || b.dataEncontrado ? new Date(b.dataOferta || b.dataEncontrado).getTime() || 0 : 0;
+        const timeA =
+          a.dataOferta || a.dataEncontrado
+            ? new Date(a.dataOferta || a.dataEncontrado).getTime() || 0
+            : 0;
+        const timeB =
+          b.dataOferta || b.dataEncontrado
+            ? new Date(b.dataOferta || b.dataEncontrado).getTime() || 0
+            : 0;
+
         if (timeA !== timeB) {
           return timeB - timeA;
         }
-        // Desempate: mais próximos primeiro
-        const distA = typeof a.distanciaKm === 'number' && !isNaN(a.distanciaKm) ? a.distanciaKm : Number.POSITIVE_INFINITY;
-        const distB = typeof b.distanciaKm === 'number' && !isNaN(b.distanciaKm) ? b.distanciaKm : Number.POSITIVE_INFINITY;
+
+        const distA =
+          typeof a.distanciaKm === 'number' && !isNaN(a.distanciaKm)
+            ? a.distanciaKm
+            : Number.POSITIVE_INFINITY;
+        const distB =
+          typeof b.distanciaKm === 'number' && !isNaN(b.distanciaKm)
+            ? b.distanciaKm
+            : Number.POSITIVE_INFINITY;
+
         return distA - distB;
       }
     });
-  }, [offers, geoMode, distanceKm, statusFilter, searchQuery, settings?.ordenacaoPadrao]);
+  }, [
+    offers,
+    geographicScope,
+    distanceKm,
+    statusFilter,
+    searchQuery,
+    settings?.ordenacaoPadrao,
+  ]);
 
-  // Filtered Spontaneous Companies based on geo mode, distance slider, drive time, and status
+  // Filtered Spontaneous Companies based on geographic scope, distance slider, drive time, and status
   const filteredCompanies = useMemo(() => {
-    const list = companies.filter((c) => {
-      // Geo mode filter
-      if (geoMode === 'internacional') {
-        if (!c.isInternacional) return false;
+    return companies.filter((c) => {
+      const isCompanyIntl =
+        c.ambito === 'internacional' ||
+        (c.pais && c.pais.toLowerCase() !== 'portugal');
+
+      if (geographicScope === 'internacional') {
+        if (!isCompanyIntl) return false;
       } else {
-        // Nacional: skip international companies; apply distance filter
-        if (c.isInternacional) return false;
-        if (typeof c.distanciaKm === 'number' && distanceKm > 0 && c.distanciaKm > distanceKm) return false;
-        // Drive time filter (only in nacional)
-        if (typeof c.tempoDeslocacaoCarroMin === 'number' && c.tempoDeslocacaoCarroMin > maxCarMinutes) return false;
+        if (isCompanyIntl) return false;
+
+        if (distanceKm === 0) {
+          if (c.distanciaKm > 1.0) return false;
+        } else if (distanceKm < 600) {
+          if (c.distanciaKm > distanceKm) return false;
+        }
       }
+
+      if (
+        geographicScope === 'nacional' &&
+        c.tempoDeslocacaoCarroMin > maxCarMinutes
+      ) {
+        return false;
+      }
+
+      return true;
+    });
+  }, [
+    companies,
+    geographicScope,
+    distanceKm,
+    maxCarMinutes,
+    statusFilter,
+    searchQuery,
+  ]);
 
       // Status filter
       if (statusFilter !== 'todos' && c.estado !== statusFilter) return false;
@@ -426,14 +646,19 @@ export default function App() {
 
       return true;
     });
-
     const ordenacao = settings?.ordenacaoPadrao || 'recentes';
 
     return list.sort((a, b) => {
       const timeA = a.dataEncontrado ? new Date(a.dataEncontrado).getTime() || 0 : 0;
       const timeB = b.dataEncontrado ? new Date(b.dataEncontrado).getTime() || 0 : 0;
-      const distA = typeof a.distanciaKm === 'number' && !isNaN(a.distanciaKm) ? a.distanciaKm : Number.POSITIVE_INFINITY;
-      const distB = typeof b.distanciaKm === 'number' && !isNaN(b.distanciaKm) ? b.distanciaKm : Number.POSITIVE_INFINITY;
+      const distA =
+        typeof a.distanciaKm === 'number' && !isNaN(a.distanciaKm)
+          ? a.distanciaKm
+          : Number.POSITIVE_INFINITY;
+      const distB =
+        typeof b.distanciaKm === 'number' && !isNaN(b.distanciaKm)
+          ? b.distanciaKm
+          : Number.POSITIVE_INFINITY;
 
       if (ordenacao === 'proximos') {
         if (distA !== distB) {
@@ -448,8 +673,15 @@ export default function App() {
         return distA - distB;
       }
     });
-  }, [companies, geoMode, distanceKm, maxCarMinutes, statusFilter, searchQuery, settings?.ordenacaoPadrao]);
-
+  }, [
+    companies,
+    geographicScope,
+    distanceKm,
+    maxCarMinutes,
+    statusFilter,
+    searchQuery,
+    settings?.ordenacaoPadrao,
+  ]);
 
   // Global counts for the header
   const counts = useMemo(() => {
@@ -504,9 +736,11 @@ export default function App() {
         <FilterBar
           mode={activeTab}
           distanceKm={distanceKm}
-          onDistanceChange={setDistanceKm}
+          onDistanceChange={handleDistanceChange}
+          geographicScope={geographicScope}
+          onGeographicScopeChange={setGeographicScope}
           maxCarMinutes={maxCarMinutes}
-          onMaxCarMinutesChange={setMaxCarMinutes}
+          onMaxCarMinutesChange={handleMaxCarMinutesChange}
           statusFilter={statusFilter}
           onStatusFilterChange={setStatusFilter}
           searchQuery={searchQuery}
@@ -526,7 +760,7 @@ export default function App() {
         {isLoading ? (
           <div className="text-center py-20">
             <div className="inline-block w-6 h-6 border-2 border-blue-600 border-t-transparent rounded-full animate-spin mb-3"></div>
-            <p className="text-sm text-neutral-400">A carregar base de candidaturas...</p>
+            <p className="text-base text-neutral-600">A carregar base de candidaturas...</p>
           </div>
         ) : (
           <>
@@ -536,6 +770,7 @@ export default function App() {
                 onOpenEmail={handleOpenEmail}
                 onUpdateStatus={handleUpdateStatus}
                 onOpenGoogleSearch={(query) => setActiveSearchQuery(query)}
+                onUpdateOffer={handleUpdateOffer}
               />
             )}
 
@@ -545,12 +780,17 @@ export default function App() {
                 onOpenEmail={handleOpenEmail}
                 onUpdateStatus={handleUpdateStatus}
                 onOpenGoogleSearch={(query) => setActiveSearchQuery(query)}
+                onUpdateCompany={handleUpdateCompany}
               />
             )}
 
             {activeTab === 'perfil' && (
               <KnowledgeBase
                 documents={documents}
+                selectedDocIds={selectedDocIds}
+                onToggleSelectDoc={handleToggleSelectDoc}
+                onSelectAllDocs={handleSelectAllDocs}
+                onDeleteDocument={handleDeleteDocument}
                 onUploadFile={handleUploadFile}
                 onRecallQuestion={handleRecallQuestion}
                 isUploading={isUploading}
