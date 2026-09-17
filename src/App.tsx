@@ -19,7 +19,12 @@ import {
 } from './types';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'ofertas' | 'espontaneas' | 'perfil' | 'definicoes'>('ofertas');
+  const [activeTab, setActiveTab] = useState<'ofertas' | 'espontaneas' | 'perfil' | 'definicoes'>(() => {
+    const savedTab = window.localStorage.getItem('crm-active-tab');
+    return savedTab === 'ofertas' || savedTab === 'espontaneas' || savedTab === 'perfil' || savedTab === 'definicoes'
+      ? savedTab
+      : 'ofertas';
+  });
   const [distanceKm, setDistanceKm] = useState<number>(10);
   const [geographicScope, setGeographicScope] = useState<GeographicScope>('nacional');
   const [maxCarMinutes, setMaxCarMinutes] = useState<number>(10);
@@ -36,6 +41,24 @@ export default function App() {
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [isUploading, setIsUploading] = useState<boolean>(false);
   const [notification, setNotification] = useState<{ message: string; type: 'success' | 'info' | 'error' } | null>(null);
+
+  const SEARCH_TIMEOUT_MS = 45000;
+
+  const fetchWithTimeout = async (input: RequestInfo | URL, init?: RequestInit, timeoutMs = SEARCH_TIMEOUT_MS) => {
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), timeoutMs);
+
+    try {
+      return await fetch(input, { ...init, signal: controller.signal });
+    } catch (error: any) {
+      if (error?.name === 'AbortError') {
+        throw new Error(`Pesquisa excedeu o tempo limite de ${Math.round(timeoutMs / 1000)} segundos.`);
+      }
+      throw error;
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+  };
 
   // Email modal state
   const [selectedEmailItem, setSelectedEmailItem] = useState<{
@@ -77,6 +100,10 @@ export default function App() {
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem('crm-active-tab', activeTab);
+  }, [activeTab]);
 
   const showNotice = (message: string, type: 'success' | 'info' | 'error' = 'info') => {
     setNotification({ message, type });
@@ -125,47 +152,65 @@ export default function App() {
     try {
       setIsRefreshing(true);
       if (activeTab === 'ofertas') {
-        const res = await fetch('/api/search/offers', {
+        const res = await fetchWithTimeout('/api/search/offers', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             location: settings?.localizacaoBase || 'Rua Garcia de Orta, 6, 2780-113 Oeiras, Portugal',
             maxKm: distanceKm,
+            geographicScope,
           }),
         });
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || 'A pesquisa de ofertas falhou.');
+        }
         const data = await res.json();
         if (data.offers) {
           setOffers(data.offers);
           showNotice(
-            data.added > 0
+            data.externalResults === 0
+              ? 'A pesquisa externa não encontrou ofertas para os critérios indicados. Os resultados existentes foram mantidos.'
+              : data.added > 0
               ? `${data.added} nova(s) oferta(s) encontrada(s) e adicionada(s) à base de dados.`
               : 'Pesquisa concluída: todas as ofertas atuais já se encontravam na base de dados.',
-            'success'
+            data.externalResults === 0 ? 'info' : 'success'
           );
         }
       } else if (activeTab === 'espontaneas') {
-        const res = await fetch('/api/search/companies', {
+        const res = await fetchWithTimeout('/api/search/companies', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             location: settings?.localizacaoBase || 'Rua Garcia de Orta, 6, 2780-113 Oeiras, Portugal',
             maxMinutes: maxCarMinutes,
+            geographicScope,
           }),
         });
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error || 'A pesquisa de empresas falhou.');
+        }
         const data = await res.json();
         if (data.companies) {
           setCompanies(data.companies);
           showNotice(
-            data.added > 0
+            data.externalResults === 0
+              ? 'A pesquisa externa não encontrou empresas para os critérios indicados. Os resultados existentes foram mantidos.'
+              : data.added > 0
               ? `${data.added} nova(s) empresa(s) para candidatura espontânea adicionada(s).`
               : 'Pesquisa concluída: nenhuma nova empresa identificada neste lote.',
-            'success'
+            data.externalResults === 0 ? 'info' : 'success'
           );
         }
       }
     } catch (err: any) {
       console.error('Erro ao atualizar:', err);
-      showNotice('Erro durante a pesquisa e atualização de dados.', 'error');
+      const message =
+        err?.message?.includes('tempo limite') || err?.name === 'AbortError'
+          ? 'A pesquisa excedeu o tempo limite de 45 segundos. Os resultados atuais foram mantidos; pode tentar novamente.'
+          : 'Erro durante a pesquisa e atualização de dados.';
+      showNotice(message, 'error');
     } finally {
       setIsRefreshing(false);
     }
@@ -499,6 +544,7 @@ export default function App() {
       // Geographic scope filter: Nacional vs Internacional
       const isOfferIntl =
         o.ambito === 'internacional' ||
+        o.isInternacional === true ||
         (o.pais && o.pais.toLowerCase() !== 'portugal');
 
       if (geographicScope === 'internacional') {
@@ -597,6 +643,7 @@ export default function App() {
     const list = companies.filter((c) => {
       const isCompanyIntl =
         c.ambito === 'internacional' ||
+        c.isInternacional === true ||
         (c.pais && c.pais.toLowerCase() !== 'portugal');
 
       if (geographicScope === 'internacional') {
@@ -759,6 +806,11 @@ export default function App() {
             {activeTab === 'espontaneas' && (
               <SpontaneousList
                 companies={filteredCompanies}
+                emptyReason={
+                  companies.length > 0 && geographicScope === 'nacional'
+                    ? `As ${companies.length} empresas existentes foram eliminadas pelos filtros cumulativos: distância até ${distanceKm} km e tempo de deslocação até ${maxCarMinutes} minutos.`
+                    : undefined
+                }
                 onOpenEmail={handleOpenEmail}
                 onUpdateStatus={handleUpdateStatus}
                 onOpenGoogleSearch={(query) => setActiveSearchQuery(query)}

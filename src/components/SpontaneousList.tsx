@@ -27,7 +27,23 @@ interface SpontaneousListProps {
   onUpdateStatus: (id: string, status: OfferStatus) => void;
   onOpenGoogleSearch: (query: string) => void;
   onUpdateCompany?: (id: string, updates: Partial<SpontaneousCompany>) => Promise<SpontaneousCompany>;
+  emptyReason?: string;
 }
+
+const isPersonalLinkedInUrl = (value: string) => {
+  if (!value || !value.trim()) return false;
+  try {
+    const url = new URL(value.trim());
+    const hostname = url.hostname.toLowerCase();
+    const pathname = url.pathname;
+    const isLinkedInDomain = hostname === 'linkedin.com' || hostname.endsWith('.linkedin.com');
+    const isPersonalProfilePath = /^\/in\//i.test(pathname);
+    const isCompanyOrPeoplePath = /\/company\//i.test(pathname) || /\/people\//i.test(pathname);
+    return isLinkedInDomain && isPersonalProfilePath && !isCompanyOrPeoplePath;
+  } catch {
+    return false;
+  }
+};
 
 export const SpontaneousList: React.FC<SpontaneousListProps> = ({
   companies,
@@ -35,6 +51,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
   onUpdateStatus,
   onOpenGoogleSearch,
   onUpdateCompany,
+  emptyReason,
 }) => {
   const [copiedQuery, setCopiedQuery] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -154,7 +171,7 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
           Nenhuma empresa encontrada com os critérios de deslocação actuais.
         </p>
         <p className="text-xs text-neutral-500 max-w-md mx-auto">
-          Ajusta o tempo máximo de condução ou o raio no slider de distância, ou clica em "Actualizar" para descobrir novas empresas industriais e comerciais.
+          {emptyReason || 'Ajusta o tempo máximo de condução ou o raio no slider de distância, ou clica em "Actualizar" para descobrir novas empresas industriais e comerciais.'}
         </p>
       </div>
     );
@@ -472,16 +489,22 @@ export const SpontaneousList: React.FC<SpontaneousListProps> = ({
                       {pessoa.email && (
                         <p className="text-blue-300 font-mono text-[11px] mt-0.5">{pessoa.email}</p>
                       )}
-                      {pessoa.linkedin && (
+                      {pessoa.linkedin && isPersonalLinkedInUrl(pessoa.linkedin) && pessoa.verificado && (
                         <a
                           href={pessoa.linkedin}
                           target="_blank"
                           rel="noreferrer"
                           className="inline-flex items-center gap-1 text-[11px] text-blue-400 hover:text-blue-300 underline mt-0.5"
                         >
-                          LinkedIn
+                          Perfil pessoal LinkedIn
                           <ExternalLink className="w-2.5 h-2.5" />
                         </a>
+                      )}
+                      {pessoa.linkedin && !isPersonalLinkedInUrl(pessoa.linkedin) && (
+                        <p className="text-[11px] text-amber-400">Página empresarial LinkedIn, não perfil pessoal.</p>
+                      )}
+                      {pessoa.linkedin && isPersonalLinkedInUrl(pessoa.linkedin) && !pessoa.verificado && (
+                        <p className="text-[11px] text-amber-400">Perfil LinkedIn indicado, mas ainda não verificado.</p>
                       )}
                     </div>
                   ))}

@@ -1,5 +1,6 @@
 export type OfferStatus = 'novo' | 'visto' | 'preparada' | 'enviado' | 'ignorado';
 export type GeographicScope = 'nacional' | 'internacional';
+export type ContactType = 'pessoa' | 'equipa' | 'departamento' | 'canal_recrutamento';
 
 export interface FonteUrl {
   portal: string;
@@ -22,6 +23,7 @@ export interface JobOffer {
   websiteEmpresa: string;
   linkedinEmpresa?: string;
   contactoRelevante?: {
+    tipoContacto?: ContactType;
     nome: string;
     cargo: string;
     linkedin?: string;

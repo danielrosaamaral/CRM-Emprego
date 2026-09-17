@@ -19,6 +19,12 @@ export function createMailtoUrl(to: string, subject: string, body: string): stri
   return `mailto:${encodeURIComponent(to || '')}?subject=${encSubject}&body=${encBody}`;
 }
 
+export function isValidEmailSyntax(value: unknown): boolean {
+  if (value === undefined || value === null || value === '') return true;
+  if (typeof value !== 'string') return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
 export function formatDatePt(isoDateStr?: string): string {
   if (!isoDateStr) return '—';
   try {

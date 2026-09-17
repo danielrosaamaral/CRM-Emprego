@@ -1,4 +1,8 @@
 import zlib from 'node:zlib';
+import pdfParse from 'pdf-parse';
+
+export const PDF_NO_TEXT_MESSAGE =
+  'Documento PDF sem camada de texto pesquisável / digitalizado exclusivamente como imagem sem OCR';
 
 /**
  * Cleanly unescapes PDF string literals (e.g. \(, \), \\, octal codes).
@@ -20,7 +24,7 @@ function unescapePdfString(str: string): string {
  * Extracts searchable text layer from a PDF Buffer without external packages,
  * using Node.js built-in zlib to decompress FlateDecode streams.
  */
-export function extractTextFromPdfBuffer(buffer: Buffer): string {
+function extractTextWithLegacyParser(buffer: Buffer): string {
   const binary = buffer.toString('latin1');
   const textTokens: string[] = [];
 
@@ -98,7 +102,19 @@ export function extractTextFromPdfBuffer(buffer: Buffer): string {
 
   const result = textTokens.join(' ').replace(/\s+/g, ' ').trim();
   if (!result || result.length < 5) {
-    return '[Documento PDF sem camada de texto pesquisável / digitalizado exclusivamente como imagem sem OCR]';
+    return PDF_NO_TEXT_MESSAGE;
   }
   return result;
+}
+
+export async function extractTextFromPdfBuffer(buffer: Buffer): Promise<string> {
+  try {
+    const parsed = await pdfParse(buffer);
+    const text = parsed.text.replace(/\s+/g, ' ').trim();
+    if (text.length >= 5) return text;
+  } catch (err) {
+    console.warn('pdf-parse não conseguiu extrair o texto; a usar o parser compatível:', err);
+  }
+
+  return extractTextWithLegacyParser(buffer);
 }

@@ -1,6 +1,7 @@
 import { KnowledgeDocument, RecallResult } from '../src/types.js';
 import { router } from './engines/router.js';
 import { db } from './storage.js';
+import { PDF_NO_TEXT_MESSAGE } from './pdfUtils.js';
 
 export class KnowledgeService {
   public async indexDocument(
@@ -18,6 +19,28 @@ export class KnowledgeService {
       especialidades: [],
     };
     let resumo = '';
+
+    if (conteudoTexto === PDF_NO_TEXT_MESSAGE) {
+      const doc: KnowledgeDocument = {
+        id: `doc_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
+        tipo,
+        nomeFicheiro,
+        tamanhoBytes,
+        dataUpload: new Date().toISOString(),
+        resumoExtraido: PDF_NO_TEXT_MESSAGE,
+        conteudoTexto,
+        entidadesExtraidas: {
+          anosExperiencia: 0,
+          competencias: [],
+          sectores: [],
+          clientesRelevantes: [],
+          ferramentas: [],
+          especialidades: [],
+        },
+      };
+      db.addDocument(doc);
+      return doc;
+    }
 
     const prompt = `Analisa rigorosamente este documento profissional (${tipo}) de um designer com 25 anos de experiência e extrai um resumo factual e entidades estruturadas.
 NUNCA inventes dados, clientes ou competências que não estejam presentes no texto.

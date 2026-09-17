@@ -18,8 +18,8 @@ import {
   FileText,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { JobOffer, OfferStatus } from '../types';
-import { formatDatePt, getStatusBadgeStyle } from '../utils';
+import { ContactType, JobOffer, OfferStatus } from '../types';
+import { formatDatePt, getStatusBadgeStyle, isValidEmailSyntax } from '../utils';
 
 interface JobOffersListProps {
   offers: JobOffer[];
@@ -28,6 +28,36 @@ interface JobOffersListProps {
   onOpenGoogleSearch: (query: string) => void;
   onUpdateOffer?: (id: string, updates: Partial<JobOffer>) => Promise<JobOffer>;
 }
+
+const isPersonalLinkedInUrl = (value: string) => {
+  if (!value || !value.trim()) return false;
+  try {
+    const url = new URL(value.trim());
+    const hostname = url.hostname.toLowerCase();
+    const pathname = url.pathname;
+    const isLinkedInDomain = hostname === 'linkedin.com' || hostname.endsWith('.linkedin.com');
+    const isPersonalProfilePath = /^\/in\//i.test(pathname);
+    const isCompanyOrPeoplePath = /\/company\//i.test(pathname) || /\/people\//i.test(pathname);
+    return isLinkedInDomain && isPersonalProfilePath && !isCompanyOrPeoplePath;
+  } catch {
+    return false;
+  }
+};
+
+const getContactTypeLabel = (type?: ContactType) => {
+  switch (type) {
+    case 'pessoa':
+      return 'Pessoa de contacto';
+    case 'equipa':
+      return 'Equipa de contacto';
+    case 'departamento':
+      return 'Departamento de contacto';
+    case 'canal_recrutamento':
+      return 'Canal de recrutamento';
+    default:
+      return 'Contacto não classificado';
+  }
+};
 
 export const JobOffersList: React.FC<JobOffersListProps> = ({
   offers,
@@ -69,6 +99,10 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
   const handleSaveEdit = async (offer: JobOffer) => {
     if (!editForm.empresa.trim() || !editForm.funcao.trim()) {
       setSaveError('Empresa e Função são campos obrigatórios.');
+      return;
+    }
+    if (!isValidEmailSyntax(editForm.email)) {
+      setSaveError('O email introduzido não tem um formato válido.');
       return;
     }
 
@@ -355,7 +389,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                   {/* Right Column: Contact & Verification */}
                   <div className="md:col-span-5 bg-neutral-800/70 rounded-md p-3 border border-neutral-700/60 space-y-2">
                     <div className="flex items-center justify-between text-[11px] uppercase tracking-wider font-mono text-neutral-500">
-                      <span>Pessoa / Contacto Relevante</span>
+                      <span>{offer.contactoRelevante ? getContactTypeLabel(offer.contactoRelevante.tipoContacto) : 'Contacto Relevante'}</span>
                       {offer.contactoRelevante ? (
                         offer.contactoRelevante.verificado ? (
                           <span className="flex items-center gap-1 text-emerald-400 font-medium">
@@ -382,15 +416,21 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                             {offer.contactoRelevante.email}
                           </p>
                         )}
-                        {offer.contactoRelevante.linkedin && (
+                        {offer.contactoRelevante.linkedin && isPersonalLinkedInUrl(offer.contactoRelevante.linkedin) && offer.contactoRelevante.verificado && (
                           <a
                             href={offer.contactoRelevante.linkedin}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline text-[11px]"
                           >
-                            Ver Perfil no LinkedIn
+                            Ver Perfil pessoal no LinkedIn
                           </a>
+                        )}
+                        {offer.contactoRelevante.linkedin && !isPersonalLinkedInUrl(offer.contactoRelevante.linkedin) && (
+                          <p className="text-[11px] text-amber-400">Página empresarial LinkedIn, não perfil pessoal.</p>
+                        )}
+                        {offer.contactoRelevante.linkedin && isPersonalLinkedInUrl(offer.contactoRelevante.linkedin) && !offer.contactoRelevante.verificado && (
+                          <p className="text-[11px] text-amber-400">Perfil LinkedIn indicado, mas ainda não verificado.</p>
                         )}
                       </div>
                     ) : (
@@ -436,7 +476,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         rel="noreferrer"
                         className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline font-medium"
                       >
-                        <span>Ver Oferta</span>
+                        <span>Ver Oferta (URL não verificada)</span>
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     ) : null}
@@ -448,7 +488,7 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         className="inline-flex items-center gap-1 text-neutral-300 hover:text-neutral-100"
                       >
                         <Globe className="w-3 h-3" />
-                        <span>Website</span>
+                        <span>Website indicado</span>
                       </a>
                     )}
                     {offer.linkedinEmpresa && (

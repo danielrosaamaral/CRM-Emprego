@@ -1,10 +1,17 @@
-import { FonteUrl, JobOffer, SpontaneousCompany } from '../src/types.js';
+import { ContactType, FonteUrl, JobOffer, SpontaneousCompany } from '../src/types.js';
+import { isValidEmailSyntax } from '../src/utils.js';
 import { db } from './storage.js';
 
 function escapeCsvField(field: any): string {
   if (field === null || field === undefined) return '""';
   const str = String(field).replace(/"/g, '""');
   return `"${str}"`;
+}
+
+function normalizeContactType(value: string): ContactType | undefined {
+  return value === 'pessoa' || value === 'equipa' || value === 'departamento' || value === 'canal_recrutamento'
+    ? value
+    : undefined;
 }
 
 export class CsvService {
@@ -22,6 +29,7 @@ export class CsvService {
       'websiteEmpresa',
       'linkedinEmpresa',
       'contactoNome',
+      'tipoContacto',
       'contactoCargo',
       'contactoEmail',
       'contactoLinkedin',
@@ -72,6 +80,7 @@ export class CsvService {
         escapeCsvField(o.websiteEmpresa),
         escapeCsvField(o.linkedinEmpresa || ''),
         escapeCsvField(o.contactoRelevante?.nome || ''),
+        escapeCsvField(o.contactoRelevante?.tipoContacto || ''),
         escapeCsvField(o.contactoRelevante?.cargo || ''),
         escapeCsvField(o.contactoRelevante?.email || ''),
         escapeCsvField(o.contactoRelevante?.linkedin || ''),
@@ -194,6 +203,7 @@ export class CsvService {
         const fontesUrls: FonteUrl[] | undefined = urlList.length > 0
           ? urlList.map((url) => ({ portal: 'csv', url }))
           : undefined;
+        const contactoEmail = getCol('contactoEmail');
 
         newOffers.push({
           id: getCol('id') || `off_${Date.now()}_${i}`,
@@ -210,8 +220,9 @@ export class CsvService {
           contactoRelevante: getCol('contactoNome')
             ? {
                 nome: getCol('contactoNome'),
+                tipoContacto: normalizeContactType(getCol('tipoContacto')),
                 cargo: getCol('contactoCargo', 'Recrutamento'),
-                email: getCol('contactoEmail'),
+                email: contactoEmail && isValidEmailSyntax(contactoEmail) ? contactoEmail : undefined,
                 linkedin: getCol('contactoLinkedin'),
                 verificado: getCol('contactoVerificado') === 'true',
               }

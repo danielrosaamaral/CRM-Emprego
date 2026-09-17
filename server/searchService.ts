@@ -1,4 +1,5 @@
-import { JobOffer, SpontaneousCompany } from '../src/types.js';
+import { ContactType, GeographicScope, JobOffer, SpontaneousCompany } from '../src/types.js';
+import { isValidEmailSyntax } from '../src/utils.js';
 import { router } from './engines/router.js';
 import { geoService } from './geoService.js';
 import { db } from './storage.js';
@@ -7,17 +8,27 @@ export class SearchService {
   /**
    * Search for new job offers and add to database without duplicating
    */
-  public async refreshJobOffers(locationBase: string, maxKm: number): Promise<{ added: number; total: number; offers: JobOffer[] }> {
+  public async refreshJobOffers(
+    locationBase: string,
+    maxKm: number,
+    geographicScope: GeographicScope = 'nacional'
+  ): Promise<{ added: number; total: number; externalResults: number; offers: JobOffer[] }> {
     const docs = db.getData().documentos;
     const profileSummary = docs.map((d) => `${d.nomeFicheiro}: ${d.resumoExtraido}`).join('\n');
 
+    const isInternational = geographicScope === 'internacional';
     const prompt = `Como motor de pesquisa e agregação de emprego especializado, identifica 3 a 5 novas ofertas de emprego REAIS e plausíveis para um Designer Gráfico Sénior com 25 anos de experiência nas áreas de Design Gráfico, Branding, Packaging, Editorial, Marketing, SEO e Google Ads.
-A localização base é "${locationBase}". A distância máxima do filtro é ${maxKm} km.
+  Âmbito geográfico: ${isInternational ? 'INTERNACIONAL (inclui ofertas remotas e fora de Portugal)' : `NACIONAL, com base em "${locationBase}" e distância máxima de ${maxKm} km`}.
 
 CRITÉRIOS ESTRITOS:
-- Foco em empresas na região de ${locationBase} (ou num raio até ${maxKm} km).
+- ${isInternational ? 'Inclui empresas e ofertas remotas de vários países. Indica sempre o país real da oferta.' : `Foco em empresas na região de ${locationBase} (ou num raio até ${maxKm} km).`}
 - Funções compatíveis: Senior Graphic Designer, Brand Designer, Packaging Specialist, Diretor de Arte Editorial, Coordenador de Design e Marketing.
+- Procura primeiro uma pessoa individual identificável para o contacto relevante.
+- Se não existir uma pessoa pública identificável, podes usar uma equipa, departamento ou canal de recrutamento, classificando correctamente o tipo de contacto.
+- Se não existir nenhum contacto útil, omite "contactoRelevante".
 - Se o contacto/email não for público, marca "verificado": false. NÃO inventes emails que pareçam confidenciais.
+- Só inclui URL de oferta ou website quando for uma URL canónica confirmada; caso contrário usa string vazia. Nunca construas URLs a partir do nome da empresa.
+- Mantém separados "linkedinEmpresa" (página da empresa) e "contactoRelevante.linkedin" (perfil pessoal /in/); nunca uses uma página /company/ como perfil pessoal.
 - Calcula a distância aproximada em km e tempo de deslocação em minutos.
 - Determina grau de compatibilidade (0 a 100%) e 3 a 4 razões factuais.
 
@@ -28,15 +39,18 @@ Responde APENAS em formato JSON válido com este formato:
       "empresa": "Nome da Empresa",
       "funcao": "Título do Cargo",
       "localizacao": "Cidade / Freguesia",
+      "pais": "País real da oferta",
+      "ambito": "${geographicScope}",
       "distanciaKm": 4.5,
       "tempoCarroMin": 8,
       "dataOferta": "2026-03-12",
-      "urlOferta": "https://...",
-      "websiteEmpresa": "https://...",
+      "urlOferta": "URL canónica confirmada ou string vazia",
+      "websiteEmpresa": "Website oficial confirmado ou string vazia",
       "linkedinEmpresa": "https://linkedin.com/company/...",
       "sector": "alimentar",
       "resumoRequisitos": "Resumo dos requisitos principais",
       "contactoRelevante": {
+        "tipoContacto": "pessoa",
         "nome": "Nome da pessoa",
         "cargo": "Cargo",
         "linkedin": "https://linkedin.com/in/...",
@@ -66,7 +80,9 @@ Responde APENAS em formato JSON válido com este formato:
       const newOffers: JobOffer[] = await Promise.all(
         rawOffers.map(async (o: any, idx: number) => {
           const loc = geoService.cleanLocationName(o.localizacao || locationBase);
-          const geoCalc = await geoService.calculateDistanceAndDuration(locationBase, loc);
+          const geoCalc = isInternational
+            ? { distanciaKm: typeof o.distanciaKm === 'number' ? o.distanciaKm : 0, tempoCarroMin: typeof o.tempoCarroMin === 'number' ? o.tempoCarroMin : 0 }
+            : await geoService.calculateDistanceAndDuration(locationBase, loc);
           return {
             id: `off_${Date.now()}_${idx}`,
             empresa: o.empresa || 'Empresa Confidencial',
@@ -74,16 +90,23 @@ Responde APENAS em formato JSON válido com este formato:
             localizacao: loc,
             distanciaKm: geoCalc.distanciaKm,
             tempoCarroMin: geoCalc.tempoCarroMin,
+            pais: o.pais,
+            ambito: geographicScope,
             dataOferta: o.dataOferta || new Date().toISOString().split('T')[0],
-            urlOferta: o.urlOferta || `https://linkedin.com/jobs/search/?keywords=${encodeURIComponent(o.funcao || 'designer')}`,
-            websiteEmpresa: o.websiteEmpresa || `https://google.com/search?q=${encodeURIComponent(o.empresa || '')}`,
+            urlOferta: typeof o.urlOferta === 'string' ? o.urlOferta : '',
+            websiteEmpresa: typeof o.websiteEmpresa === 'string' ? o.websiteEmpresa : '',
             linkedinEmpresa: o.linkedinEmpresa,
             contactoRelevante: o.contactoRelevante
               ? {
+                  tipoContacto: this.normalizeContactType(o.contactoRelevante.tipoContacto),
                   nome: o.contactoRelevante.nome || 'Responsável de Recrutamento',
                   cargo: o.contactoRelevante.cargo || 'Recursos Humanos',
-                  linkedin: o.contactoRelevante.linkedin,
-                  email: o.contactoRelevante.email,
+                  linkedin: this.isPersonalLinkedInUrl(o.contactoRelevante.linkedin)
+                    ? o.contactoRelevante.linkedin
+                    : undefined,
+                  email: isValidEmailSyntax(o.contactoRelevante.email)
+                    ? o.contactoRelevante.email
+                    : undefined,
                   verificado: !!o.contactoRelevante.verificado,
                 }
               : undefined,
@@ -103,16 +126,12 @@ Responde APENAS em formato JSON válido com este formato:
       return {
         added: result.added,
         total: result.total,
+        externalResults: rawOffers.length,
         offers: db.getData().ofertas,
       };
     } catch (err) {
       console.warn('Falha na pesquisa automática de ofertas:', err);
-      // If AI search fails, return current offers from DB
-      return {
-        added: 0,
-        total: db.getData().ofertas.length,
-        offers: db.getData().ofertas,
-      };
+      throw err;
     }
   }
 
@@ -121,10 +140,12 @@ Responde APENAS em formato JSON válido com este formato:
    */
   public async refreshCompanies(
     locationBase: string,
-    maxMinutes = 10
-  ): Promise<{ added: number; total: number; companies: SpontaneousCompany[] }> {
-    const prompt = `Como consultor de prospecção corporativa, identifica 3 a 5 empresas de GRANDE DIMENSÃO ECONÓMICA na área de "${locationBase}".
-Critério geográfico fundamental: tempo de deslocação de carro até ${maxMinutes} minutos (prioridade a ≤ 5 minutos).
+    maxMinutes = 10,
+    geographicScope: GeographicScope = 'nacional'
+  ): Promise<{ added: number; total: number; externalResults: number; companies: SpontaneousCompany[] }> {
+    const isInternational = geographicScope === 'internacional';
+    const prompt = `Como consultor de prospecção corporativa, identifica 3 a 5 empresas de GRANDE DIMENSÃO ECONÓMICA ${isInternational ? 'em vários países e/ou com trabalho remoto internacional' : `na área de "${locationBase}"`}.
+Critério geográfico fundamental: ${isInternational ? 'modo internacional: não aplicar limite nacional de distância ou tempo de carro; indicar o país real.' : `tempo de deslocação de carro até ${maxMinutes} minutos (prioridade a ≤ 5 minutos).`}
 EVITAR zonas de trânsito intenso. Avaliar acessibilidade e estacionamento.
 
 OBJECTIVO:
@@ -150,12 +171,14 @@ Responde APENAS em JSON no formato:
     {
       "nome": "Nome da Empresa",
       "localizacao": "Morada / Zona",
+      "pais": "País real da empresa",
+      "ambito": "${geographicScope}",
       "distanciaKm": 3.5,
       "tempoDeslocacaoCarroMin": 5,
       "nivelTransito": "baixo",
       "notasEstacionamento": "Parque próprio para colaboradores...",
-      "website": "https://...",
-      "linkedin": "https://linkedin.com/company/...",
+      "website": "Website oficial confirmado ou string vazia",
+      "linkedin": "https://linkedin.com/company/... apenas se for página empresarial confirmada",
       "dimensaoEconomica": "Faturação estimada, colaboradores...",
       "sector": "alimentar",
       "razaoCandidatura": "Razão factual pela qual a empresa beneficia dos 25 anos de experiência...",
@@ -164,7 +187,7 @@ Responde APENAS em JSON no formato:
           "nome": "Nome",
           "cargo": "Cargo",
           "prioridade": 1,
-          "linkedin": "https://linkedin.com/in/...",
+          "linkedin": "https://linkedin.com/in/... apenas se for perfil pessoal confirmado",
           "email": "se público",
           "verificado": false
         }
@@ -191,17 +214,21 @@ Responde APENAS em JSON no formato:
       const newCompanies: SpontaneousCompany[] = await Promise.all(
         rawCompanies.map(async (c: any, idx: number) => {
           const loc = geoService.cleanLocationName(c.localizacao || locationBase);
-          const geoCalc = await geoService.calculateDistanceAndDuration(locationBase, loc);
+          const geoCalc = isInternational
+            ? { distanciaKm: typeof c.distanciaKm === 'number' ? c.distanciaKm : 0, tempoCarroMin: typeof c.tempoDeslocacaoCarroMin === 'number' ? c.tempoDeslocacaoCarroMin : 0 }
+            : await geoService.calculateDistanceAndDuration(locationBase, loc);
           return {
             id: `comp_${Date.now()}_${idx}`,
             nome: c.nome || 'Empresa Local',
             localizacao: loc,
             distanciaKm: geoCalc.distanciaKm,
             tempoDeslocacaoCarroMin: geoCalc.tempoCarroMin,
+            pais: c.pais,
+            ambito: geographicScope,
             nivelTransito: c.nivelTransito === 'elevado' ? 'elevado' : c.nivelTransito === 'moderado' ? 'moderado' : 'baixo',
             notasEstacionamento: c.notasEstacionamento || 'Estacionamento disponível nas imediações.',
-            website: c.website || `https://google.com/search?q=${encodeURIComponent(c.nome || '')}`,
-            linkedin: c.linkedin || `https://linkedin.com/company/search?keywords=${encodeURIComponent(c.nome || '')}`,
+            website: typeof c.website === 'string' ? c.website : '',
+            linkedin: typeof c.linkedin === 'string' ? c.linkedin : '',
             dimensaoEconomica: c.dimensaoEconomica || 'Empresa de dimensão económica de relevo.',
             sector: c.sector || 'indústria',
             razaoCandidatura: c.razaoCandidatura || 'Grande volume de produtos e suportes com necessidade contínua de design de topo.',
@@ -210,7 +237,7 @@ Responde APENAS em JSON no formato:
                   nome: p.nome || 'Responsável de Marketing / RH',
                   cargo: p.cargo || 'Direção',
                   prioridade: p.prioridade || 1,
-                  linkedin: p.linkedin,
+                  linkedin: this.isPersonalLinkedInUrl(p.linkedin) ? p.linkedin : undefined,
                   email: p.email,
                   verificado: !!p.verificado,
                 }))
@@ -239,16 +266,38 @@ Responde APENAS em JSON no formato:
       return {
         added: result.added,
         total: result.total,
+        externalResults: rawCompanies.length,
         companies: db.getData().empresas,
       };
     } catch (err) {
       console.warn('Falha na prospecção automática de empresas:', err);
-      return {
-        added: 0,
-        total: db.getData().empresas.length,
-        companies: db.getData().empresas,
-      };
+      throw err;
     }
+  }
+
+  private isPersonalLinkedInUrl(value: unknown): value is string {
+    if (typeof value !== 'string') return false;
+    const trimmed = value.trim();
+    if (!trimmed) return false;
+    try {
+      const url = new URL(trimmed);
+      const hostname = url.hostname.toLowerCase();
+      const pathname = url.pathname;
+
+      const isLinkedInDomain = hostname === 'linkedin.com' || hostname.endsWith('.linkedin.com');
+      const isPersonalProfilePath = /^\/in\//i.test(pathname);
+      const isCompanyOrPeoplePath = /\/company\//i.test(pathname) || /\/people\//i.test(pathname);
+
+      return isLinkedInDomain && isPersonalProfilePath && !isCompanyOrPeoplePath;
+    } catch {
+      return false;
+    }
+  }
+
+  private normalizeContactType(value: unknown): ContactType | undefined {
+    return value === 'pessoa' || value === 'equipa' || value === 'departamento' || value === 'canal_recrutamento'
+      ? value
+      : undefined;
   }
 
   /**

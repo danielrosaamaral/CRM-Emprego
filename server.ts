@@ -11,7 +11,7 @@ import { testGroqConnection } from './server/engines/groqEngine.js';
 import { testMistralConnection } from './server/engines/mistralEngine.js';
 import { router } from './server/engines/router.js';
 import { knowledgeService } from './server/knowledgeService.js';
-import { extractTextFromPdfBuffer } from './server/pdfUtils.js';
+import { extractTextFromPdfBuffer, PDF_NO_TEXT_MESSAGE } from './server/pdfUtils.js';
 import { geoService } from './server/geoService.js';
 import { searchService } from './server/searchService.js';
 import { db } from './server/storage.js';
@@ -249,30 +249,30 @@ async function startServer() {
   // Search/refresh job offers
   app.post('/api/search/offers', async (req, res) => {
     try {
-      const { location, maxKm } = req.body;
+      const { location, maxKm, geographicScope } = req.body;
       const settings = db.getData().definicoes;
       const loc = location || settings.localizacaoBase;
       const radius = typeof maxKm === 'number' ? maxKm : settings.distanciaKmPadrao;
 
-      const result = await searchService.refreshJobOffers(loc, radius);
+      const result = await searchService.refreshJobOffers(loc, radius, geographicScope === 'internacional' ? 'internacional' : 'nacional');
       res.json(result);
     } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Erro ao pesquisar ofertas' });
+      res.status(502).json({ error: err?.message || 'Erro ao pesquisar ofertas' });
     }
   });
 
   // Search/refresh spontaneous prospect companies
   app.post('/api/search/companies', async (req, res) => {
     try {
-      const { location, maxMinutes } = req.body;
+      const { location, maxMinutes, geographicScope } = req.body;
       const settings = db.getData().definicoes;
       const loc = location || settings.localizacaoBase;
       const minutes = typeof maxMinutes === 'number' ? maxMinutes : settings.tempoCarroMaxMin;
 
-      const result = await searchService.refreshCompanies(loc, minutes);
+      const result = await searchService.refreshCompanies(loc, minutes, geographicScope === 'internacional' ? 'internacional' : 'nacional');
       res.json(result);
     } catch (err: any) {
-      res.status(500).json({ error: err?.message || 'Erro ao pesquisar empresas' });
+      res.status(502).json({ error: err?.message || 'Erro ao pesquisar empresas' });
     }
   });
 
@@ -402,10 +402,10 @@ async function startServer() {
       if (conteudoBase64) {
         try {
           const pdfBuffer = Buffer.from(conteudoBase64, 'base64');
-          textToProcess = extractTextFromPdfBuffer(pdfBuffer);
+          textToProcess = await extractTextFromPdfBuffer(pdfBuffer);
         } catch (pdfErr) {
           console.warn('Erro ao processar buffer PDF:', pdfErr);
-          textToProcess = '[Documento PDF sem camada de texto pesquisável / digitalizado exclusivamente como imagem sem OCR]';
+          textToProcess = PDF_NO_TEXT_MESSAGE;
         }
       }
 
