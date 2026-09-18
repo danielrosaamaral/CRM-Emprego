@@ -1,4 +1,4 @@
-import { ContactType, GeographicScope, JobOffer, SpontaneousCompany } from '../src/types.js';
+import { ContactType, GeographicScope, JobOffer, OFFER_PROCESSING_START_DATE, SpontaneousCompany } from '../src/types.js';
 import { isValidEmailSyntax } from '../src/utils.js';
 import { router } from './engines/router.js';
 import { geoService } from './geoService.js';
@@ -43,7 +43,7 @@ Responde APENAS em formato JSON válido com este formato:
       "ambito": "${geographicScope}",
       "distanciaKm": 4.5,
       "tempoCarroMin": 8,
-      "dataOferta": "2026-03-12",
+      "dataOferta": "2026-03-12 ou null se a data de publicação não for conhecida",
       "urlOferta": "URL canónica confirmada ou string vazia",
       "websiteEmpresa": "Website oficial confirmado ou string vazia",
       "linkedinEmpresa": "https://linkedin.com/company/...",
@@ -76,9 +76,10 @@ Responde APENAS em formato JSON válido com este formato:
 
       const parsed = JSON.parse(res.text);
       const rawOffers = Array.isArray(parsed.ofertas) ? parsed.ofertas : [];
+      const eligibleOffers = rawOffers.filter((offer: any) => this.isEligibleOfferDate(offer?.dataOferta));
 
       const newOffers: JobOffer[] = await Promise.all(
-        rawOffers.map(async (o: any, idx: number) => {
+        eligibleOffers.map(async (o: any, idx: number) => {
           const loc = geoService.cleanLocationName(o.localizacao || locationBase);
           const geoCalc = isInternational
             ? { distanciaKm: typeof o.distanciaKm === 'number' ? o.distanciaKm : 0, tempoCarroMin: typeof o.tempoCarroMin === 'number' ? o.tempoCarroMin : 0 }
@@ -92,7 +93,7 @@ Responde APENAS em formato JSON válido com este formato:
             tempoCarroMin: geoCalc.tempoCarroMin,
             pais: o.pais,
             ambito: geographicScope,
-            dataOferta: o.dataOferta || new Date().toISOString().split('T')[0],
+            dataOferta: this.normalizeOfferDate(o.dataOferta),
             urlOferta: typeof o.urlOferta === 'string' ? o.urlOferta : '',
             websiteEmpresa: typeof o.websiteEmpresa === 'string' ? o.websiteEmpresa : '',
             linkedinEmpresa: o.linkedinEmpresa,
@@ -292,6 +293,21 @@ Responde APENAS em JSON no formato:
     } catch {
       return false;
     }
+  }
+
+  private normalizeOfferDate(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
+    const date = value.trim();
+    if (!date || Number.isNaN(Date.parse(date))) return undefined;
+    return date;
+  }
+
+  private isEligibleOfferDate(value: unknown): boolean {
+    const normalizedDate = this.normalizeOfferDate(value);
+    if (!normalizedDate) return false;
+    const publicationTime = Date.parse(normalizedDate);
+    const processingStartTime = Date.parse(OFFER_PROCESSING_START_DATE);
+    return !Number.isNaN(publicationTime) && publicationTime >= processingStartTime;
   }
 
   private normalizeContactType(value: unknown): ContactType | undefined {

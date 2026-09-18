@@ -7,6 +7,7 @@ import {
   FonteUrl,
   JobOffer,
   KnowledgeDocument,
+  OFFER_PROCESSING_START_DATE,
   SpontaneousCompany,
 } from '../src/types.js';
 import { geoService } from './geoService.js';
@@ -741,6 +742,7 @@ function mergeJobOffers(existing: JobOffer, incoming: JobOffer): JobOffer {
     ...incoming,
     ...existing, // User edits and existing status take priority
     urlOferta: primaryUrl,
+    dataOferta: existing.dataOferta || incoming.dataOferta,
     fontesUrls: mergedFontes.length > 0 ? mergedFontes : undefined,
     websiteEmpresa: existing.websiteEmpresa || incoming.websiteEmpresa,
     linkedinEmpresa: existing.linkedinEmpresa || incoming.linkedinEmpresa,
@@ -966,8 +968,14 @@ class DatabaseManager {
   public updateOffers(newOffers: JobOffer[]) {
     let addedCount = 0;
     let mergedCount = 0;
+    const processingStartTime = Date.parse(OFFER_PROCESSING_START_DATE);
 
     for (const incoming of newOffers) {
+      const publicationTime = incoming.dataOferta ? Date.parse(incoming.dataOferta) : NaN;
+      if (Number.isNaN(publicationTime) || publicationTime < processingStartTime) {
+        continue;
+      }
+
       const existingIdx = this.data.ofertas.findIndex((exist) => areOffersMatching(exist, incoming));
       if (existingIdx >= 0) {
         this.data.ofertas[existingIdx] = mergeJobOffers(this.data.ofertas[existingIdx], incoming);

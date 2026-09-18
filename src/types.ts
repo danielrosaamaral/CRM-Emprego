@@ -1,6 +1,7 @@
 export type OfferStatus = 'novo' | 'visto' | 'preparada' | 'enviado' | 'ignorado';
 export type GeographicScope = 'nacional' | 'internacional';
 export type ContactType = 'pessoa' | 'equipa' | 'departamento' | 'canal_recrutamento';
+export const OFFER_PROCESSING_START_DATE = '2026-09-18';
 
 export interface FonteUrl {
   portal: string;
@@ -16,7 +17,7 @@ export interface JobOffer {
   tempoCarroMin?: number;
   pais?: string;
   ambito?: GeographicScope;
-  dataOferta: string;
+  dataOferta?: string;
   urlOferta: string;
   fontesUrls?: FonteUrl[];
   isInternacional?: boolean;
