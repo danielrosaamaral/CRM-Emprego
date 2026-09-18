@@ -18,7 +18,7 @@ import {
   FileText,
 } from 'lucide-react';
 import React, { useState } from 'react';
-import { ContactType, JobOffer, OfferStatus } from '../types';
+import { ContactType, FonteUrl, JobOffer, OfferStatus } from '../types';
 import { formatDatePt, getStatusBadgeStyle, isValidEmailSyntax } from '../utils';
 
 interface JobOffersListProps {
@@ -116,8 +116,8 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
         localizacao: editForm.localizacao.trim(),
         urlOferta: editForm.urlOferta.trim(),
         fontesUrls: offer.fontesUrls && offer.fontesUrls.length > 0
-          ? Array.from(new Set([editForm.urlOferta.trim(), ...offer.fontesUrls].filter(Boolean)))
-          : (editForm.urlOferta.trim() ? [editForm.urlOferta.trim()] : undefined),
+          ? offer.fontesUrls
+          : (editForm.urlOferta.trim() ? [{ portal: 'Oferta', url: editForm.urlOferta.trim() }] : undefined),
         notas: editForm.notas.trim(),
         contactoRelevante: offer.contactoRelevante
           ? {
@@ -332,12 +332,10 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         {offer.localizacao} ({offer.distanciaKm} km
                         {offer.tempoCarroMin ? ` · ~${offer.tempoCarroMin} min de carro` : ''})
                       </span>
-                      {offer.dataOferta && (
-                        <span className="flex items-center gap-1 text-neutral-400">
-                          <Calendar className="w-3.5 h-3.5" />
-                          Oferta: {formatDatePt(offer.dataOferta)}
-                        </span>
-                      )}
+                      <span className="flex items-center gap-1 text-neutral-400">
+                        <Calendar className="w-3.5 h-3.5" />
+                        Oferta: {offer.dataOferta ? formatDatePt(offer.dataOferta) : 'data não disponível'}
+                      </span>
                       <span className="text-neutral-400">
                         Encontrada: {formatDatePt(offer.dataEncontrado)}
                       </span>
@@ -411,41 +409,37 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                           {offer.contactoRelevante.nome}
                         </p>
                         <p className="text-neutral-400 text-[11px]">{offer.contactoRelevante.cargo}</p>
-                        {offer.contactoRelevante.email && (
+                        {(offer.contactoRelevante.email || offer.email) && (
                           <p className="text-blue-300 font-mono text-[11px]">
-                            {offer.contactoRelevante.email}
+                            {offer.contactoRelevante.email || offer.email}
                           </p>
                         )}
-                        {offer.contactoRelevante.linkedin && isPersonalLinkedInUrl(offer.contactoRelevante.linkedin) && offer.contactoRelevante.verificado && (
+                        {offer.contactoRelevante.linkedin && isPersonalLinkedInUrl(offer.contactoRelevante.linkedin) && (
                           <a
                             href={offer.contactoRelevante.linkedin}
                             target="_blank"
                             rel="noreferrer"
                             className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline text-[11px]"
                           >
-                            Ver Perfil pessoal no LinkedIn
+                            {offer.contactoRelevante.verificado ? 'Ver Perfil pessoal no LinkedIn' : 'Perfil pessoal no LinkedIn (não verificado)'}
                           </a>
                         )}
                         {offer.contactoRelevante.linkedin && !isPersonalLinkedInUrl(offer.contactoRelevante.linkedin) && (
-                          <p className="text-[11px] text-amber-400">Página empresarial LinkedIn, não perfil pessoal.</p>
-                        )}
-                        {offer.contactoRelevante.linkedin && isPersonalLinkedInUrl(offer.contactoRelevante.linkedin) && !offer.contactoRelevante.verificado && (
-                          <p className="text-[11px] text-amber-400">Perfil LinkedIn indicado, mas ainda não verificado.</p>
+                          <a
+                            href={offer.contactoRelevante.linkedin}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline text-[11px]"
+                          >
+                            Ver LinkedIn empresarial ou outro perfil
+                          </a>
                         )}
                       </div>
                     ) : (
                       <div className="space-y-1.5 text-neutral-500">
+                        {offer.email && <p className="text-blue-300 font-mono text-[11px]">{offer.email}</p>}
+                        {offer.contacto && <p className="text-neutral-300 text-[11px]">{offer.contacto}</p>}
                         <p className="text-[11px]">Contacto direto não identificado na oferta pública.</p>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            onOpenGoogleSearch(`site:linkedin.com/in "${offer.empresa}" recursos humanos`)
-                          }
-                          className="inline-flex items-center gap-1 text-[11px] font-mono text-blue-400 hover:text-blue-300 underline cursor-pointer"
-                        >
-                          <Search className="w-3 h-3" />
-                          Procurar RH de {offer.empresa} no LinkedIn
-                        </button>
                       </div>
                     )}
                   </div>
@@ -455,20 +449,25 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-3 border-t border-neutral-800">
                   {/* External Links */}
                   <div className="flex flex-wrap items-center gap-3 text-xs text-neutral-500">
-                    {offer.fontesUrls && offer.fontesUrls.length > 1 ? (
-                      offer.fontesUrls.map((url, idx) => (
-                        <a
-                          key={idx}
-                          href={url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline font-medium"
-                          title={url}
-                        >
-                          <span>Fonte {idx + 1}</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </a>
-                      ))
+                    {offer.fontesUrls && offer.fontesUrls.length > 0 ? (
+                      offer.fontesUrls.map((source: FonteUrl, idx) => {
+                        const legacySource = source as FonteUrl | unknown as string;
+                        const sourceUrl = typeof legacySource === 'string' ? legacySource : source.url;
+                        const sourcePortal = typeof legacySource === 'string' ? 'Fonte' : source.portal;
+                        return (
+                          <a
+                            key={idx}
+                            href={sourceUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center gap-1 text-blue-400 hover:text-blue-300 underline font-medium"
+                            title={sourceUrl}
+                          >
+                            <span>{sourcePortal || `Fonte ${idx + 1}`}</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </a>
+                        );
+                      })
                     ) : offer.urlOferta ? (
                       <a
                         href={offer.urlOferta}
@@ -480,6 +479,22 @@ export const JobOffersList: React.FC<JobOffersListProps> = ({
                         <ExternalLink className="w-3 h-3" />
                       </a>
                     ) : null}
+                    {offer.pesquisasGoogleSugeridas && offer.pesquisasGoogleSugeridas.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-2 text-[11px] font-mono text-neutral-400">
+                        <span>Pesquisas sugeridas:</span>
+                        {offer.pesquisasGoogleSugeridas.map((query, idx) => (
+                          <button
+                            key={idx}
+                            type="button"
+                            onClick={() => onOpenGoogleSearch(query)}
+                            className="text-blue-400 hover:text-blue-300 underline cursor-pointer"
+                            title={query}
+                          >
+                            {query}
+                          </button>
+                        ))}
+                      </div>
+                    )}
                     {offer.websiteEmpresa && (
                       <a
                         href={offer.websiteEmpresa}

@@ -356,7 +356,7 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({
                 id: 'groq' as const,
                 name: 'Groq Cloud',
                 label: 'Groq',
-                model: 'llama-3.3-70b-versatile',
+                model: 'openai/gpt-oss-120b',
                 desc: 'Inferência de alta velocidade com deteção automática de rate limit 429 e failover imediato para o próximo motor.',
               },
               {

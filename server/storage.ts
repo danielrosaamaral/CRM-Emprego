@@ -51,7 +51,7 @@ const INITIAL_SETTINGS: AppSettings = {
       nome: 'Groq Cloud (Llama 3.3 70B)',
       ativo: true,
       prioridade: 2,
-      modeloPreferido: 'llama-3.3-70b-versatile',
+      modeloPreferido: 'openai/gpt-oss-120b',
       apiKeyConfigurada: !!process.env.GROQ_API_KEY,
       temChaveAmbiente: !!process.env.GROQ_API_KEY,
       limiteAtingido: false,

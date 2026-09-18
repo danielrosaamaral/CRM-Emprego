@@ -594,23 +594,23 @@ export default function App() {
         }
 
         const timeA =
-          a.dataOferta || a.dataEncontrado
-            ? new Date(a.dataOferta || a.dataEncontrado).getTime() || 0
+          a.dataOferta
+            ? new Date(a.dataOferta).getTime() || 0
             : 0;
         const timeB =
-          b.dataOferta || b.dataEncontrado
-            ? new Date(b.dataOferta || b.dataEncontrado).getTime() || 0
+          b.dataOferta
+            ? new Date(b.dataOferta).getTime() || 0
             : 0;
 
         return timeB - timeA;
       } else {
         const timeA =
-          a.dataOferta || a.dataEncontrado
-            ? new Date(a.dataOferta || a.dataEncontrado).getTime() || 0
+          a.dataOferta
+            ? new Date(a.dataOferta).getTime() || 0
             : 0;
         const timeB =
-          b.dataOferta || b.dataEncontrado
-            ? new Date(b.dataOferta || b.dataEncontrado).getTime() || 0
+          b.dataOferta
+            ? new Date(b.dataOferta).getTime() || 0
             : 0;
 
         if (timeA !== timeB) {

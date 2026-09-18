@@ -1,4 +1,4 @@
-import { ContactType, GeographicScope, JobOffer, OFFER_PROCESSING_START_DATE, SpontaneousCompany } from '../src/types.js';
+import { ContactType, FonteUrl, GeographicScope, JobOffer, OFFER_PROCESSING_START_DATE, SpontaneousCompany } from '../src/types.js';
 import { isValidEmailSyntax } from '../src/utils.js';
 import { router } from './engines/router.js';
 import { geoService } from './geoService.js';
@@ -29,6 +29,8 @@ CRITÉRIOS ESTRITOS:
 - Se o contacto/email não for público, marca "verificado": false. NÃO inventes emails que pareçam confidenciais.
 - Só inclui URL de oferta ou website quando for uma URL canónica confirmada; caso contrário usa string vazia. Nunca construas URLs a partir do nome da empresa.
 - Mantém separados "linkedinEmpresa" (página da empresa) e "contactoRelevante.linkedin" (perfil pessoal /in/); nunca uses uma página /company/ como perfil pessoal.
+- Se existirem, devolve "fontesUrls" como uma lista de objetos { "portal": "Nome do portal", "url": "URL da fonte" }.
+- Se existirem, devolve "pesquisasGoogleSugeridas" como uma lista de consultas realmente devolvidas pela pesquisa. Não inventes consultas.
 - Calcula a distância aproximada em km e tempo de deslocação em minutos.
 - Determina grau de compatibilidade (0 a 100%) e 3 a 4 razões factuais.
 
@@ -45,8 +47,14 @@ Responde APENAS em formato JSON válido com este formato:
       "tempoCarroMin": 8,
       "dataOferta": "2026-03-12 ou null se a data de publicação não for conhecida",
       "urlOferta": "URL canónica confirmada ou string vazia",
+      "fontesUrls": [
+        { "portal": "Nome do portal", "url": "URL da fonte" }
+      ],
       "websiteEmpresa": "Website oficial confirmado ou string vazia",
       "linkedinEmpresa": "https://linkedin.com/company/...",
+      "pesquisasGoogleSugeridas": ["consulta devolvida pela pesquisa"],
+      "contacto": "telefone ou outro canal público, se existir",
+      "email": "email alternativo público, se existir",
       "sector": "alimentar",
       "resumoRequisitos": "Resumo dos requisitos principais",
       "contactoRelevante": {
@@ -95,19 +103,21 @@ Responde APENAS em formato JSON válido com este formato:
             ambito: geographicScope,
             dataOferta: this.normalizeOfferDate(o.dataOferta),
             urlOferta: typeof o.urlOferta === 'string' ? o.urlOferta : '',
+            fontesUrls: this.normalizeSourceUrls(o.fontesUrls),
             websiteEmpresa: typeof o.websiteEmpresa === 'string' ? o.websiteEmpresa : '',
-            linkedinEmpresa: o.linkedinEmpresa,
+            linkedinEmpresa: typeof o.linkedinEmpresa === 'string' ? o.linkedinEmpresa : undefined,
+            pesquisasGoogleSugeridas: this.normalizeSuggestedSearches(o.pesquisasGoogleSugeridas),
+            contacto: typeof o.contacto === 'string' ? o.contacto.trim() || undefined : undefined,
+            email: this.normalizeContactEmail(o.email),
             contactoRelevante: o.contactoRelevante
               ? {
                   tipoContacto: this.normalizeContactType(o.contactoRelevante.tipoContacto),
                   nome: o.contactoRelevante.nome || 'Responsável de Recrutamento',
                   cargo: o.contactoRelevante.cargo || 'Recursos Humanos',
-                  linkedin: this.isPersonalLinkedInUrl(o.contactoRelevante.linkedin)
+                  linkedin: this.isLinkedInUrl(o.contactoRelevante.linkedin)
                     ? o.contactoRelevante.linkedin
                     : undefined,
-                  email: isValidEmailSyntax(o.contactoRelevante.email)
-                    ? o.contactoRelevante.email
-                    : undefined,
+                  email: this.normalizeContactEmail(o.contactoRelevante.email),
                   verificado: !!o.contactoRelevante.verificado,
                 }
               : undefined,
@@ -295,6 +305,41 @@ Responde APENAS em JSON no formato:
     }
   }
 
+  private isLinkedInUrl(value: unknown): value is string {
+    if (typeof value !== 'string' || !value.trim()) return false;
+    try {
+      const url = new URL(value.trim());
+      const hostname = url.hostname.toLowerCase();
+      return hostname === 'linkedin.com' || hostname.endsWith('.linkedin.com');
+    } catch {
+      return false;
+    }
+  }
+
+  private normalizeSourceUrls(value: unknown): FonteUrl[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const sources = value
+      .map((item): FonteUrl => {
+        if (typeof item === 'string') return { portal: 'Fonte', url: item.trim() };
+        if (item && typeof item === 'object') {
+          const source = item as { portal?: unknown; url?: unknown };
+          return {
+            portal: typeof source.portal === 'string' ? source.portal.trim() : 'Fonte',
+            url: typeof source.url === 'string' ? source.url.trim() : '',
+          };
+        }
+        return { portal: 'Fonte', url: '' };
+      })
+      .filter((item) => item.url.length > 0);
+    return sources.length > 0 ? sources : undefined;
+  }
+
+  private normalizeSuggestedSearches(value: unknown): string[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const searches = value.filter((item): item is string => typeof item === 'string').map((item) => item.trim()).filter(Boolean);
+    return searches.length > 0 ? searches : undefined;
+  }
+
   private normalizeOfferDate(value: unknown): string | undefined {
     if (typeof value !== 'string') return undefined;
     const date = value.trim();
@@ -308,6 +353,15 @@ Responde APENAS em JSON no formato:
     const publicationTime = Date.parse(normalizedDate);
     const processingStartTime = Date.parse(OFFER_PROCESSING_START_DATE);
     return !Number.isNaN(publicationTime) && publicationTime >= processingStartTime;
+  }
+
+  private normalizeContactEmail(value: unknown): string | undefined {
+    if (typeof value !== 'string') return undefined;
+    const email = value.trim();
+    if (!email || /\s/.test(email) || email.indexOf('@') <= 0 || email.indexOf('@') !== email.lastIndexOf('@') || email.endsWith('@')) {
+      return undefined;
+    }
+    return isValidEmailSyntax(email) || /^[^@]+@[^@]+$/.test(email) ? email : undefined;
   }
 
   private normalizeContactType(value: unknown): ContactType | undefined {

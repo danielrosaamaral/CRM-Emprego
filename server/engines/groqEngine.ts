@@ -4,7 +4,7 @@ export async function runGroq(
   prompt: string,
   apiKey?: string,
   systemInstruction?: string,
-  model = 'llama-3.3-70b-versatile',
+  model = 'openai/gpt-oss-120b',
   jsonMode = false
 ): Promise<string> {
   const key = apiKey || configService.getApiKey('groq');
